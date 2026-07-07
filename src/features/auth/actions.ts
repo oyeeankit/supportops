@@ -1,0 +1,55 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { loginSchema } from "./schemas";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
+
+export type LoginState = {
+  message?: string;
+  fieldErrors?: {
+    email?: string[];
+    password?: string[];
+  };
+};
+
+export async function loginAction(_: LoginState, formData: FormData): Promise<LoginState> {
+  if (!isSupabaseConfigured()) {
+    return {
+      message:
+        "Supabase is not configured yet. Add your environment variables before signing in.",
+    };
+  }
+
+  const parsed = loginSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+
+  if (!parsed.success) {
+    return {
+      fieldErrors: parsed.error.flatten().fieldErrors,
+      message: "Please fix the highlighted fields.",
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+
+  if (error) {
+    return {
+      message: error.message,
+    };
+  }
+
+  redirect("/dashboard");
+}
+
+export async function signOutAction() {
+  if (isSupabaseConfigured()) {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+  }
+
+  redirect("/login");
+}
