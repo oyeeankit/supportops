@@ -4,9 +4,21 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, type DataTableColumn } from "@/components/data/data-table";
 import { EmptyState } from "@/components/feedback/empty-state";
-import { attendanceStatusLabels, shiftLabelsFallback, workFocusLabels, type TeamMemberDailyRow } from "./overview-helpers";
+import { attendanceStatusLabels, shiftLabelsFallback, type TeamMemberDailyRow } from "./overview-helpers";
 
-export function ManagerOverview({ rows, date }: { rows: TeamMemberDailyRow[]; date: string }) {
+export function ManagerOverview({
+  rows,
+  date,
+  showDate = false,
+  title = "Today's team overview",
+  description = `Manager view for ${date}: attendance, workload, and current focus.`,
+}: {
+  rows: TeamMemberDailyRow[];
+  date: string;
+  showDate?: boolean;
+  title?: string;
+  description?: string;
+}) {
   const columns: DataTableColumn<TeamMemberDailyRow>[] = [
     {
       key: "employee",
@@ -27,28 +39,36 @@ export function ManagerOverview({ rows, date }: { rows: TeamMemberDailyRow[]; da
       key: "attendance",
       label: "Employee Status",
       render: (row) =>
-        row.operation ? (
-          <Badge variant={row.operation.attendance_status === "leave" ? "warning" : "success"}>
-            {attendanceStatusLabels[row.operation.attendance_status]}
+        row.supportLog ? (
+          <Badge variant={row.supportLog.attendance_status === "leave" ? "warning" : "success"}>
+            {attendanceStatusLabels[row.supportLog.attendance_status]}
           </Badge>
         ) : (
           <Badge variant="outline">Not logged</Badge>
         ),
     },
-    { key: "tickets", label: "Tickets", render: (row) => row.operation?.tickets_resolved ?? 0 },
-    { key: "chats", label: "Chats", render: (row) => row.operation?.chats_handled ?? 0 },
+    { key: "tickets", label: "Tickets", render: (row) => row.supportLog?.tickets_handled ?? 0 },
+    { key: "chats", label: "Chats", render: (row) => row.supportLog?.chats_handled ?? 0 },
     {
-      key: "focus",
-      label: "Focus",
-      render: (row) => (row.operation ? workFocusLabels[row.operation.work_focus] : "Not logged"),
+      key: "testing",
+      label: "Testing",
+      render: (row) => row.testingLog?.testing_task || "—",
     },
   ];
+
+  if (showDate) {
+    columns.splice(3, 0, {
+      key: "activity_date",
+      label: "Date",
+      render: (row) => row.supportLog?.log_date ?? row.testingLog?.log_date ?? date,
+    });
+  }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Today&apos;s team overview</CardTitle>
-        <CardDescription>Manager view for {date}: attendance, workload, and current focus.</CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <DataTable

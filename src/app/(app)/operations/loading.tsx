@@ -1,5 +1,5 @@
-import { LoadingPanel } from "@/components/feedback/loading-panel";
+import { SupportOpsLoader } from "@/components/loading/supportops-loader";
 
 export default function OperationsLoading() {
-  return <LoadingPanel label="Loading daily operations..." />;
+  return <SupportOpsLoader label="Loading daily operations..." />;
 }

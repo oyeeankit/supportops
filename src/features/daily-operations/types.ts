@@ -2,10 +2,8 @@ import type { AppRole } from "@/lib/auth/roles";
 import type { Shift } from "@/features/employees/types";
 
 export const attendanceStatuses = ["present", "wfh", "leave"] as const;
-export const workFocusOptions = ["support", "testing", "mixed", "documentation", "training", "other"] as const;
 
 export type AttendanceStatus = (typeof attendanceStatuses)[number];
-export type WorkFocus = (typeof workFocusOptions)[number];
 
 export const attendanceStatusLabels: Record<AttendanceStatus, string> = {
   present: "Present",
@@ -13,24 +11,49 @@ export const attendanceStatusLabels: Record<AttendanceStatus, string> = {
   leave: "Leave",
 };
 
-export const workFocusLabels: Record<WorkFocus, string> = {
-  support: "Support",
-  testing: "Testing",
-  mixed: "Mixed",
-  documentation: "Documentation",
-  training: "Training",
-  other: "Other",
+export const testingTypes = ["functional", "regression", "bug_verification", "exploratory"] as const;
+export const testingStatuses = ["in_progress", "completed"] as const;
+
+export type TestingType = (typeof testingTypes)[number];
+export type TestingStatus = (typeof testingStatuses)[number];
+
+export const testingTypeLabels: Record<TestingType, string> = {
+  functional: "Functional",
+  regression: "Regression",
+  bug_verification: "Bug Verification",
+  exploratory: "Exploratory",
 };
 
-export type DailyOperation = {
+export const testingStatusLabels: Record<TestingStatus, string> = {
+  in_progress: "In Progress",
+  completed: "Completed",
+};
+
+export type DailySupportLog = {
   id: string;
   employee_id: string;
-  operation_date: string;
+  log_date: string;
   attendance_status: AttendanceStatus;
-  tickets_resolved: number;
+  tickets_handled: number;
   chats_handled: number;
-  work_focus: WorkFocus;
-  current_testing_task: string | null;
+  notes: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DailyTestingLog = {
+  id: string;
+  employee_id: string;
+  log_date: string;
+  application_name: string;
+  module_name: string;
+  testing_task: string;
+  testing_type: TestingType;
+  status: TestingStatus;
+  bugs_found: number;
+  critical_bugs_found: number;
   notes: string | null;
   created_by: string | null;
   updated_by: string | null;
@@ -45,5 +68,6 @@ export type TeamMemberDailyRow = {
   role: AppRole;
   shift: Shift;
   avatar_url: string | null;
-  operation: DailyOperation | null;
+  supportLog: DailySupportLog | null;
+  testingLog: DailyTestingLog | null;
 };

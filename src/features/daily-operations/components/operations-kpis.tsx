@@ -3,11 +3,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { TeamMemberDailyRow } from "../types";
 
 export function OperationsKpis({ rows }: { rows: TeamMemberDailyRow[] }) {
-  const present = rows.filter((row) => row.operation?.attendance_status === "present").length;
-  const wfh = rows.filter((row) => row.operation?.attendance_status === "wfh").length;
-  const leave = rows.filter((row) => row.operation?.attendance_status === "leave").length;
-  const tickets = rows.reduce((sum, row) => sum + (row.operation?.tickets_resolved ?? 0), 0);
-  const chats = rows.reduce((sum, row) => sum + (row.operation?.chats_handled ?? 0), 0);
+  const present = rows.filter((row) => row.supportLog?.attendance_status === "present").length;
+  const wfh = rows.filter((row) => row.supportLog?.attendance_status === "wfh").length;
+  const leave = rows.filter((row) => row.supportLog?.attendance_status === "leave").length;
+  const tickets = rows.reduce((sum, row) => sum + (row.supportLog?.tickets_handled ?? 0), 0);
+  const chats = rows.reduce((sum, row) => sum + (row.supportLog?.chats_handled ?? 0), 0);
 
   const items = [
     { label: "Present", value: present, icon: CalendarCheck },

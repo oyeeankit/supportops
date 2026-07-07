@@ -2,31 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BarChart3,
-  FileText,
-  Gauge,
-  LineChart,
-  Settings,
-  ShieldCheck,
-  SquareActivity,
-  Users,
-} from "lucide-react";
+import { FileText, Gauge, LineChart, Settings, SquareActivity, Users } from "lucide-react";
+import { useAppLoading } from "@/components/feedback/app-loading";
 import { cn } from "@/lib/utils/cn";
 import type { UserProfile } from "@/lib/auth/roles";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/team", label: "Team", icon: Users },
-  { href: "/operations", label: "Daily Operations", icon: SquareActivity },
-  { href: "/qa", label: "QA Operations", icon: ShieldCheck },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/operations", label: "Daily Log", icon: SquareActivity },
   { href: "/reports", label: "Reports", icon: FileText },
   { href: "/settings", label: "Settings", icon: Settings, managerOnly: true },
 ];
 
 export function Sidebar({ profile }: { profile: UserProfile }) {
   const pathname = usePathname();
+  const { startLoading } = useAppLoading();
 
   return (
     <aside className="hidden w-72 shrink-0 border-r border-border bg-sidebar px-4 py-5 lg:flex lg:flex-col">
@@ -51,6 +42,11 @@ export function Sidebar({ profile }: { profile: UserProfile }) {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => {
+                  if (!active) {
+                    startLoading(`Loading ${item.label}...`);
+                  }
+                }}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
                   active && "bg-sidebar-accent text-sidebar-foreground",

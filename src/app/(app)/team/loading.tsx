@@ -1,5 +1,5 @@
-import { LoadingPanel } from "@/components/feedback/loading-panel";
+import { SupportOpsLoader } from "@/components/loading/supportops-loader";
 
 export default function TeamLoading() {
-  return <LoadingPanel label="Loading team management..." />;
+  return <SupportOpsLoader label="Loading team management..." />;
 }

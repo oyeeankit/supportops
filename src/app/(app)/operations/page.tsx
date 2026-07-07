@@ -9,19 +9,25 @@ import { requireUser } from "@/lib/auth/session";
 export default async function OperationsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ date?: string; error?: string }>;
+  searchParams?: Promise<{ date?: string; employee?: string; error?: string }>;
 }) {
   const { profile } = await requireUser();
   const params = await searchParams;
   const date = params?.date?.match(/^\d{4}-\d{2}-\d{2}$/) ? params.date : todayIso();
-  const { rows, myOperation, error } = await getDailyOperationsPageData(profile, date);
+  const { rows, error } = await getDailyOperationsPageData(profile, date);
   const isManager = profile.role === "manager";
+  const availableEmployeeIds = rows.map((row) => row.employee_id);
+  const initialEmployeeId = isManager
+    ? (params?.employee && availableEmployeeIds.includes(params.employee) ? params.employee : "")
+    : profile.id;
+  const selectedSupportLog = rows.find((row) => row.employee_id === initialEmployeeId)?.supportLog ?? null;
+  const selectedTestingLog = rows.find((row) => row.employee_id === initialEmployeeId)?.testingLog ?? null;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Daily Operations"
-        description="One daily workspace for support tickets, chats, testing focus, simple employee status, and team visibility."
+        title="Daily Log"
+        description="A fast daily workflow for noting tickets, chats, testing, and notes for each employee."
       />
 
       {params?.error ? (
@@ -31,7 +37,14 @@ export default async function OperationsPage({
 
       {isManager ? <OperationsKpis rows={rows} /> : null}
 
-      <DailyEntryForm employeeId={profile.id} date={date} operation={myOperation} />
+      <DailyEntryForm
+        key={`${date}-${initialEmployeeId || "no-employee"}`}
+        employeeId={initialEmployeeId}
+        date={date}
+        supportLog={selectedSupportLog}
+        testingLog={selectedTestingLog}
+        employees={isManager ? rows.map((row) => ({ id: row.employee_id, fullName: row.full_name, role: row.role, supportLog: row.supportLog, testingLog: row.testingLog })) : []}
+      />
 
       {isManager ? <ManagerOverview rows={rows} date={date} /> : null}
     </div>

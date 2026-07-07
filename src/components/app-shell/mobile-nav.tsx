@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Gauge, ShieldCheck, SquareActivity, Users } from "lucide-react";
+import { FileText, Gauge, SquareActivity, Users } from "lucide-react";
+import { useAppLoading } from "@/components/feedback/app-loading";
 import { cn } from "@/lib/utils/cn";
 
 const mobileItems = [
   { href: "/dashboard", label: "Home", icon: Gauge },
   { href: "/team", label: "Team", icon: Users },
-  { href: "/operations", label: "Daily", icon: SquareActivity },
-  { href: "/qa", label: "QA", icon: ShieldCheck },
-  { href: "/analytics", label: "Stats", icon: BarChart3 },
+  { href: "/operations", label: "Daily Log", icon: SquareActivity },
+  { href: "/reports", label: "Reports", icon: FileText },
 ];
 
 export function MobileNav() {
   const pathname = usePathname();
+  const { startLoading } = useAppLoading();
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-background lg:hidden">
@@ -26,6 +27,11 @@ export function MobileNav() {
           <Link
             key={item.href}
             href={item.href}
+            onClick={() => {
+              if (!active) {
+                startLoading(`Loading ${item.label}...`);
+              }
+            }}
             className={cn(
               "flex flex-col items-center gap-1 px-1 py-2 text-[11px] text-muted-foreground",
               active && "text-primary",
