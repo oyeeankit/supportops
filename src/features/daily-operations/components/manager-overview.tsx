@@ -52,7 +52,10 @@ export function ManagerOverview({
     {
       key: "testing",
       label: "Testing",
-      render: (row) => row.testingLog?.testing_task || "—",
+      render: (row) => {
+        const tasks = row.testingLogs.filter((log) => log.application_name.trim() || log.module_name.trim());
+        return tasks.length > 0 ? `${tasks.length} task${tasks.length > 1 ? "s" : ""}` : "—";
+      },
     },
   ];
 
@@ -60,7 +63,7 @@ export function ManagerOverview({
     columns.splice(3, 0, {
       key: "activity_date",
       label: "Date",
-      render: (row) => row.supportLog?.log_date ?? row.testingLog?.log_date ?? date,
+      render: (row) => row.supportLog?.log_date ?? row.testingLogs[0]?.log_date ?? date,
     });
   }
 

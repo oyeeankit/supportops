@@ -4,76 +4,19 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
-import { dailySupportLogSchema, dailyTestingLogSchema, monthlyPerformanceAdjustmentSchema } from "./schemas";
-
-function isSchemaCacheError(error: { message?: string } | null) {
-  if (!error?.message) {
-    return false;
-  }
-
-  return /Could not find the table|relation "[^"]+" does not exist|schema cache/i.test(error.message);
-}
-
-type LegacySupportPayload = {
-  employee_id: string;
-  log_date: string;
-  attendance_status: string;
-  tickets_handled: number;
-  chats_handled: number;
-  notes?: string | null;
-};
-
-type LegacyTestingPayload = {
-  employee_id: string;
-  log_date: string;
-  testing_task: string;
-  notes?: string | null;
-};
-
-async function upsertLegacyDailyOperation(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  payload: LegacySupportPayload | LegacyTestingPayload,
-  logType: string,
-  profileId: string,
-) {
-  const row: Record<string, unknown> = {
-    employee_id: payload.employee_id,
-    operation_date: payload.log_date,
-    created_by: profileId,
-    updated_by: profileId,
-  };
-
-  if (logType === "testing") {
-    const testingPayload = payload as LegacyTestingPayload;
-    Object.assign(row, {
-      attendance_status: "present",
-      tickets_resolved: 0,
-      chats_handled: 0,
-      current_testing_task: testingPayload.testing_task,
-      work_focus: "testing",
-      notes: testingPayload.notes ?? null,
-    });
-  } else {
-    const supportPayload = payload as LegacySupportPayload;
-    Object.assign(row, {
-      attendance_status: supportPayload.attendance_status,
-      tickets_resolved: supportPayload.tickets_handled,
-      chats_handled: supportPayload.chats_handled,
-      current_testing_task: null,
-      work_focus: "support",
-      notes: supportPayload.notes ?? null,
-    });
-  }
-
-  return supabase.from("daily_operations").upsert(row, { onConflict: "employee_id,operation_date" });
-}
+import type { DailySupportLog, DailyTestingLog } from "./types";
+import { dailySupportLogSchema, testingEntrySchema, monthlyPerformanceAdjustmentSchema } from "./schemas";
 
 export type DailyOperationActionState = {
   message?: string;
   fieldErrors?: Record<string, string[] | undefined>;
-  savedLogType?: "support" | "testing";
-  savedEmployeeId?: string;
-  resetKey?: number;
+  saved?: boolean;
+};
+
+export type EmployeeDailyData = {
+  supportLog: DailySupportLog | null;
+  testingLogs: DailyTestingLog[];
+  error?: string;
 };
 
 export async function saveDailyOperationAction(
@@ -81,92 +24,147 @@ export async function saveDailyOperationAction(
   formData: FormData,
 ): Promise<DailyOperationActionState> {
   const { profile } = await requireUser();
-  const submitAction = formData.get("submit_action") === "save_and_continue";
-  const logType = String(formData.get("log_type") ?? "support");
   const supabase = await createClient();
 
-  const payload = Object.fromEntries(formData.entries());
-  const parsed = logType === "testing"
-    ? dailyTestingLogSchema.safeParse(payload)
-    : dailySupportLogSchema.safeParse(payload);
+  const employeeId = String(formData.get("employee_id") ?? "");
+  const logDate = String(formData.get("log_date") ?? "");
 
-  if (!parsed.success) {
-    return {
-      message: "Please fix the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
-
-  if (profile.role !== "manager" && parsed.data.employee_id !== profile.id) {
+  if (profile.role !== "manager" && employeeId !== profile.id) {
     return { message: "You can only update your own daily log." };
   }
 
-  let error = null;
+  // Parse support data - convert empty strings to defaults for enum fields
+  const rawWorkFocus = String(formData.get("work_focus") ?? "");
+  const rawDayStatus = String(formData.get("day_status") ?? "");
+  const rawTicketRating = formData.get("ticket_rating");
+  const rawChatRating = formData.get("chat_rating");
+  const rawDocRating = formData.get("documentation_rating");
+  const supportPayload = {
+    employee_id: employeeId,
+    log_date: logDate,
+    attendance_status: String(formData.get("attendance_status") ?? "present"),
+    tickets_handled: formData.get("tickets_handled"),
+    chats_handled: formData.get("chats_handled"),
+    notes: formData.get("notes"),
+    work_focus: rawWorkFocus || "support",
+    day_status: rawDayStatus || "support",
+    daily_remarks: String(formData.get("daily_remarks") ?? ""),
+    ticket_rating: rawTicketRating ? Number(rawTicketRating) : null,
+    chat_rating: rawChatRating ? Number(rawChatRating) : null,
+    documentation_rating: rawDocRating ? Number(rawDocRating) : null,
+  };
 
-  if (logType === "testing") {
-    const response = await supabase.from("daily_testing_logs").upsert(
-      {
-        ...parsed.data,
-        updated_by: profile.id,
-        created_by: profile.id,
-      },
-      {
-        onConflict: "employee_id,log_date",
-      },
-    );
+  const supportParsed = dailySupportLogSchema.safeParse(supportPayload);
+  if (!supportParsed.success) {
+    return {
+      message: "Please fix the highlighted fields.",
+      fieldErrors: supportParsed.error.flatten().fieldErrors,
+    };
+  }
 
-    if (response.error && isSchemaCacheError(response.error)) {
-      const legacyResponse = await upsertLegacyDailyOperation(supabase, parsed.data, logType, profile.id);
-      error = legacyResponse.error;
-    } else {
-      error = response.error;
+  // Parse testing entries
+  const rawEntries = formData.get("testing_entries");
+  let testingEntries: unknown[];
+  try {
+    testingEntries = rawEntries ? JSON.parse(String(rawEntries)) : [];
+  } catch {
+    return { message: "Invalid testing entries format." };
+  }
+
+  if (!Array.isArray(testingEntries)) {
+    return { message: "Testing entries must be an array." };
+  }
+
+  const validatedEntries: Array<Record<string, unknown>> = [];
+  for (let i = 0; i < testingEntries.length; i++) {
+    const parsed = testingEntrySchema.safeParse(testingEntries[i]);
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors as Record<string, string[] | undefined>;
+      const fieldKeys = Object.keys(fieldErrors);
+      return {
+        message: `Entry #${i + 1}: ${fieldKeys.map((k) => fieldErrors[k]?.[0]).filter(Boolean).join(", ")}`,
+      };
     }
-  } else {
-    const response = await supabase.from("daily_support_logs").upsert(
-      {
-        ...parsed.data,
-        updated_by: profile.id,
-        created_by: profile.id,
-      },
-      {
-        onConflict: "employee_id,log_date",
-      },
-    );
+    validatedEntries.push({ ...parsed.data });
+  }
 
-    if (response.error && isSchemaCacheError(response.error)) {
-      const legacyResponse = await upsertLegacyDailyOperation(supabase, parsed.data, logType, profile.id);
-      error = legacyResponse.error;
-    } else {
-      error = response.error;
+  // Validate end >= start for each entry
+  for (let i = 0; i < validatedEntries.length; i++) {
+    const entry = validatedEntries[i];
+    if (entry.started_at && entry.ended_at && String(entry.ended_at) < String(entry.started_at)) {
+      return { message: `Entry #${i + 1}: End time cannot be before start time.` };
     }
   }
 
-  if (error) {
-    return { message: error.message };
+  // Call the RPC function for transactional save
+  const { data: rpcResult, error: rpcError } = await supabase.rpc("save_daily_operations", {
+    p_employee_id: employeeId,
+    p_log_date: logDate,
+    p_attendance_status: supportParsed.data.attendance_status,
+    p_tickets_handled: supportParsed.data.tickets_handled,
+    p_chats_handled: supportParsed.data.chats_handled,
+    p_notes: supportParsed.data.notes ?? null,
+    p_work_focus: supportParsed.data.work_focus ?? "support",
+    p_day_status: supportParsed.data.day_status ?? "support",
+    p_daily_remarks: supportParsed.data.daily_remarks ?? null,
+    p_testing_entries: JSON.stringify(validatedEntries),
+    p_profile_id: profile.id,
+    p_ticket_rating: supportParsed.data.ticket_rating ?? null,
+    p_chat_rating: supportParsed.data.chat_rating ?? null,
+    p_documentation_rating: supportParsed.data.documentation_rating ?? null,
+  });
+
+  if (rpcError) {
+    return { message: rpcError.message };
   }
 
-  if (submitAction && profile.role === "manager") {
-    const { data: employees, error: employeeError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("employment_status", "active")
-      .order("full_name");
-
-    if (!employeeError && employees) {
-      const employeeIds = employees.map((employee) => employee.id);
-      const currentIndex = employeeIds.indexOf(parsed.data.employee_id);
-      if (currentIndex >= 0) {
-        const nextEmployeeId = employeeIds[(currentIndex + 1) % employeeIds.length];
-        revalidatePath("/operations");
-        revalidatePath("/reports");
-        redirect(`/operations?date=${parsed.data.log_date}&employee=${nextEmployeeId}`);
-      }
-    }
+  const result = rpcResult as { success?: boolean; error?: string } | null;
+  if (!result?.success) {
+    return { message: result?.error ?? "Failed to save daily operations." };
   }
 
   revalidatePath("/operations");
   revalidatePath("/reports");
-  redirect(`/operations?date=${parsed.data.log_date}&employee=${parsed.data.employee_id}`);
+  revalidatePath("/dashboard");
+
+  // Stay on page (modal workflow) instead of redirecting
+  const stayOnPage = String(formData.get("stay_on_page") ?? "") === "1";
+  if (stayOnPage) {
+    return { message: "Daily operations saved.", saved: true };
+  }
+
+  redirect(`/operations?date=${logDate}&employee=${employeeId}`);
+}
+
+// Fetch a single employee's daily data for a specific date.
+// Used by the modal to lazy-load data when opened.
+export async function fetchEmployeeDailyDataAction(
+  employeeId: string,
+  logDate: string,
+): Promise<EmployeeDailyData> {
+  const { profile } = await requireUser();
+  const supabase = await createClient();
+
+  if (profile.role !== "manager" && employeeId !== profile.id) {
+    return { supportLog: null, testingLogs: [], error: "You can only view your own daily logs." };
+  }
+
+  const [sr, tr] = await Promise.all([
+    supabase.from("daily_support_logs").select("*").eq("employee_id", employeeId).eq("log_date", logDate).maybeSingle(),
+    supabase.from("daily_testing_logs").select("*").eq("employee_id", employeeId).eq("log_date", logDate).order("created_at", { ascending: true }),
+  ]);
+
+  if (sr.error) {
+    return { supportLog: null, testingLogs: [], error: sr.error.message };
+  }
+  if (tr.error) {
+    return { supportLog: null, testingLogs: [], error: tr.error.message };
+  }
+
+  return {
+    supportLog: (sr.data as DailySupportLog | null) ?? null,
+    testingLogs: (tr.data as DailyTestingLog[] | null) ?? [],
+  };
 }
 
 export async function saveMonthlyPerformanceAdjustmentAction(
@@ -189,15 +187,26 @@ export async function saveMonthlyPerformanceAdjustmentAction(
   }
 
   const supabase = await createClient();
+
+  const { data: existingAdjustment } = await supabase
+    .from("monthly_performance_adjustments")
+    .select("created_by")
+    .eq("employee_id", parsed.data.employee_id)
+    .eq("report_month", parsed.data.report_month)
+    .maybeSingle();
+
+  const payload: Record<string, unknown> = {
+    ...parsed.data,
+    updated_by: profile.id,
+  };
+
+  if (!existingAdjustment) {
+    payload.created_by = profile.id;
+  }
+
   const { error } = await supabase.from("monthly_performance_adjustments").upsert(
-    {
-      ...parsed.data,
-      created_by: profile.id,
-      updated_by: profile.id,
-    },
-    {
-      onConflict: "employee_id,report_month",
-    },
+    payload,
+    { onConflict: "employee_id,report_month" },
   );
 
   if (error) {

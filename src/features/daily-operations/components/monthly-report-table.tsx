@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTable, type DataTableColumn } from "@/components/data/data-table";
 import { roleLabels } from "@/lib/auth/roles";
+import { getScoreBadgeVariant, starRatingStars } from "../performance";
 import type { MonthlyPerformanceMetrics } from "../performance";
 
 type Props = {
@@ -22,7 +23,7 @@ export function MonthlyReportTable({ data, search, setSearch, sort, direction, o
   const filtered = React.useMemo(() => {
     const query = search.trim().toLowerCase();
     return query
-      ? data.filter((row) => row.full_name.toLowerCase().includes(query) || row.managerRemarks.toLowerCase().includes(query))
+      ? data.filter((row) => row.full_name.toLowerCase().includes(query))
       : data;
   }, [data, search]);
 
@@ -41,67 +42,46 @@ export function MonthlyReportTable({ data, search, setSearch, sort, direction, o
   }, [filtered, sort, direction]);
 
   const columns: DataTableColumn<MonthlyPerformanceMetrics>[] = [
-    {
-      key: "employee",
-      label: "Employee",
-      render: (row) => <span className="font-medium">{row.full_name}</span>,
-    },
+    { key: "employee", label: "Employee", render: (row) => <span className="font-medium">{row.full_name}</span> },
     { key: "role", label: "Role", render: (row) => roleLabels[row.role] },
     { key: "supportDays", label: "Support Days", render: (row) => row.supportDays },
     { key: "testingDays", label: "Testing Days", render: (row) => row.testingDays },
-    { key: "totalTickets", label: "Total Tickets", render: (row) => row.totalTickets },
-    { key: "totalChats", label: "Total Chats", render: (row) => row.totalChats },
-    { key: "avgTicketsPerSupportDay", label: "Avg Tickets / Support Day", render: (row) => row.avgTicketsPerSupportDay.toFixed(1) },
-    { key: "avgChatsPerSupportDay", label: "Avg Chats / Support Day", render: (row) => row.avgChatsPerSupportDay.toFixed(1) },
-    { key: "totalTestingTasks", label: "Testing Tasks", render: (row) => row.totalTestingTasks },
-    { key: "completedTestingTasks", label: "Completed", render: (row) => row.completedTestingTasks },
-    { key: "bugsFound", label: "Bugs Found", render: (row) => row.bugsFound },
-    { key: "criticalBugsFound", label: "Critical Bugs", render: (row) => row.criticalBugsFound },
     {
       key: "supportScore",
       label: "Support Score",
-      render: (row) => row.role === "qa_engineer" ? <Badge variant="outline">N/A</Badge> : <Badge variant={getScoreVariant(row.supportScore)}>{row.supportScore}</Badge>,
+      render: (row) => row.supportDays === 0 ? <Badge variant="outline">N/A</Badge> : <Badge variant={getScoreBadgeVariant(row.supportScore)}>{row.supportScore.toFixed(2)}</Badge>,
     },
     {
       key: "testingScore",
       label: "Testing Score",
-      render: (row) => <Badge variant={getScoreVariant(row.testingScore)}>{row.testingScore}</Badge>,
+      render: (row) => row.testingDays === 0 ? <Badge variant="outline">N/A</Badge> : <Badge variant={getScoreBadgeVariant(row.testingScore)}>{row.testingScore.toFixed(2)}</Badge>,
     },
+    { key: "averageDailyScore", label: "Avg Daily Score", render: (row) => <Badge variant={getScoreBadgeVariant(row.averageDailyScore)}>{row.averageDailyScore.toFixed(2)}</Badge> },
     {
       key: "finalScore",
-      label: "Final Score",
-      render: (row) => <Badge variant={getScoreVariant(row.finalScore)}>{row.finalScore}</Badge>,
+      label: "Final Score (/5)",
+      render: (row) => (
+        <span className="font-semibold" title={row.ratingLabel}>
+          {row.finalScore.toFixed(2)} {starRatingStars[row.starRating]}
+        </span>
+      ),
     },
-    { key: "managerRemarks", label: "Manager Remarks", render: (row) => row.managerRemarks || "-" },
-    { key: "details", label: "Details", render: (row) => <Button variant="outline" size="sm" onClick={() => onSelectEmployee(row)}>View</Button> },
+    { key: "ratingLabel", label: "Rating", render: (row) => row.ratingLabel },
+    { key: "details", label: "", render: (row) => <Button variant="outline" size="sm" onClick={() => onSelectEmployee(row)}>View</Button> },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:w-80">
-          <Input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search employee or remarks"
-          />
+          <Input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search employee" />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => onSort("supportScore")}>Sort by Support</Button>
-          <Button variant="outline" size="sm" onClick={() => onSort("testingScore")}>Sort by Testing</Button>
           <Button variant="outline" size="sm" onClick={() => onSort("finalScore")}>Sort by Final</Button>
+          <Button variant="outline" size="sm" onClick={() => onSort("averageDailyScore")}>Sort by Avg Daily</Button>
         </div>
       </div>
-
       <DataTable data={sorted} columns={columns} empty={<div className="rounded-md bg-muted px-3 py-4 text-sm">No results found.</div>} />
     </div>
   );
-}
-
-function getScoreVariant(score: number) {
-  if (score >= 90) return "success";
-  if (score >= 80) return "secondary";
-  if (score >= 70) return "warning";
-  return "danger";
 }

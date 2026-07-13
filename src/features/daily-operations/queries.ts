@@ -2,17 +2,18 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import type { AppRole, UserProfile } from "@/lib/auth/roles";
 import type { Shift } from "@/features/employees/types";
-import type { DailySupportLog, DailyTestingLog, TeamMemberDailyRow } from "./types";
+import type { DailySupportLog, DailyTestingLog, TeamMemberDailyRow, TestingQuality } from "./types";
 import {
-  calculateFinalScore,
-  calculateSupportScore,
-  calculateTestingScore,
+  calculateDailyFinalScore,
+  calculateDailySupportScore,
+  calculateDailyTestingScore,
   getExpectedWorkingDays,
+  getStarRating,
   round,
   type MonthlyPerformanceMetrics,
   type MonthlyPerformanceSummary,
-  type TeamAverages,
 } from "./performance";
+import { testingQualityToScore } from "./types";
 
 type ProfileRow = {
   id: string;
@@ -40,7 +41,6 @@ function isSchemaCacheError(error: { message?: string } | null) {
   if (!error?.message) {
     return false;
   }
-
   return /Could not find the table|relation "[^"]+" does not exist|invalid schema/i.test(error.message);
 }
 
@@ -63,6 +63,12 @@ function toSupportLog(legacy: LegacyOperation): DailySupportLog {
     tickets_handled: legacy.tickets_resolved,
     chats_handled: legacy.chats_handled,
     notes: null,
+    work_focus: null,
+    day_status: null,
+    daily_remarks: null,
+    ticket_rating: null,
+    chat_rating: null,
+    documentation_rating: null,
     created_by: null,
     updated_by: null,
     created_at: new Date().toISOString(),
@@ -70,24 +76,33 @@ function toSupportLog(legacy: LegacyOperation): DailySupportLog {
   };
 }
 
-function toTestingLog(legacy: LegacyOperation): DailyTestingLog {
-  return {
-    id: legacy.id,
-    employee_id: legacy.employee_id,
-    log_date: legacy.operation_date,
-    application_name: "",
-    module_name: "",
-    testing_task: legacy.current_testing_task ?? "",
-    testing_type: "functional",
-    status: legacy.current_testing_task ? "completed" : "in_progress",
-    bugs_found: 0,
-    critical_bugs_found: 0,
-    notes: null,
-    created_by: null,
-    updated_by: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+function toTestingLogs(legacy: LegacyOperation): DailyTestingLog[] {
+  if (!legacy.current_testing_task) {
+    return [];
+  }
+  return [
+    {
+      id: legacy.id,
+      employee_id: legacy.employee_id,
+      log_date: legacy.operation_date,
+      platform: "shopify" as const,
+      application_name: "",
+      module_name: "",
+      testing_type: "functional",
+      status: "completed",
+      bugs_found: 0,
+      critical_bugs_found: 0,
+      testing_quality: "good",
+      task_completion: 5,
+      started_at: null,
+      ended_at: null,
+      notes: legacy.current_testing_task ?? null,
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ];
 }
 
 async function fetchLegacyOperations(
@@ -97,72 +112,32 @@ async function fetchLegacyOperations(
   employeeIds: string[],
 ) {
   const query = supabase.from("daily_operations").select("*").in("employee_id", employeeIds);
-
   const { data, error } = dateOrEnd
     ? await query.gte("operation_date", dateOrStart).lte("operation_date", dateOrEnd)
     : await query.eq("operation_date", dateOrStart);
-
   if (error) {
     return { data: [] as LegacyOperation[], error };
   }
-
   return { data: (data ?? []) as LegacyOperation[], error: null };
 }
 
 export function getDashboardDateRange(range: DashboardRange, baseDate = todayIso()) {
   const current = new Date(`${baseDate}T00:00:00.000Z`);
-
   if (range === "yesterday") {
     current.setUTCDate(current.getUTCDate() - 1);
-    return {
-      startDate: current.toISOString().slice(0, 10),
-      endDate: current.toISOString().slice(0, 10),
-      label: "Yesterday",
-    };
+    return { startDate: current.toISOString().slice(0, 10), endDate: current.toISOString().slice(0, 10), label: "Yesterday" };
   }
-
   if (range === "7d") {
     const start = new Date(current);
     start.setUTCDate(start.getUTCDate() - 6);
-    return {
-      startDate: start.toISOString().slice(0, 10),
-      endDate: current.toISOString().slice(0, 10),
-      label: "Last 7 Days",
-    };
+    return { startDate: start.toISOString().slice(0, 10), endDate: current.toISOString().slice(0, 10), label: "Last 7 Days" };
   }
-
   if (range === "month") {
     const start = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), 1));
-    return {
-      startDate: start.toISOString().slice(0, 10),
-      endDate: current.toISOString().slice(0, 10),
-      label: "This Month",
-    };
+    return { startDate: start.toISOString().slice(0, 10), endDate: current.toISOString().slice(0, 10), label: "This Month" };
   }
-
-  return {
-    startDate: baseDate,
-    endDate: baseDate,
-    label: "Today",
-  };
+  return { startDate: baseDate, endDate: baseDate, label: "Today" };
 }
-
-export type MonthlyReportRow = {
-  employee_id: string;
-  full_name: string;
-  tickets: number;
-  chats: number;
-  entries: number;
-  testingNotes: number;
-};
-
-type MonthlyAdjustmentRow = {
-  employee_id: string;
-  report_month: string;
-  support_adjustment: number;
-  testing_adjustment: number;
-  manager_remarks: string | null;
-};
 
 function parseReportMonth(month: string) {
   const safeMonth = /^\d{4}-\d{2}$/.test(month) ? month : new Date().toISOString().slice(0, 7);
@@ -171,13 +146,8 @@ function parseReportMonth(month: string) {
   const monthNumber = Number(monthText);
   const startDate = `${yearText}-${monthText}-01`;
   const endDate = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
-
   return {
-    month: safeMonth,
-    year,
-    monthNumber,
-    startDate,
-    endDate,
+    month: safeMonth, year, monthNumber, startDate, endDate,
     monthLabel: new Date(`${safeMonth}-01T00:00:00.000Z`).toLocaleDateString("en", { month: "long", year: "numeric" }),
     expectedWorkingDays: getExpectedWorkingDays(year, monthNumber),
   };
@@ -185,24 +155,16 @@ function parseReportMonth(month: string) {
 
 function emptyMonthlyReport(month: string, monthLabel: string, expectedWorkingDays: number, error: string | null) {
   return {
-    month,
-    monthLabel,
-    expectedWorkingDays,
+    month, monthLabel, expectedWorkingDays,
     rows: [] as MonthlyPerformanceMetrics[],
     summary: {
-      month,
-      monthLabel,
-      totalTeamTickets: 0,
-      totalTeamChats: 0,
-      totalTestingTasks: 0,
-      totalBugsFound: 0,
-      averageSupportScore: 0,
-      averageTestingScore: 0,
-      averageFinalScore: 0,
-      bestSupportPerformer: null,
-      bestTestingPerformer: null,
-      overallBestPerformer: null,
-      expectedWorkingDays,
+      month, monthLabel, expectedWorkingDays,
+      totalTeamTickets: 0, totalTeamChats: 0,
+      totalTestingEntries: 0, totalAppsTested: 0,
+      totalBugsFound: 0, totalCriticalBugs: 0,
+      averageSupportScore: 0, averageTestingScore: 0,
+      averageDailyScore: 0, averageFinalScore: 0,
+      bestSupportPerformer: null, bestTestingPerformer: null, overallBestPerformer: null,
     } satisfies MonthlyPerformanceSummary,
     error,
   };
@@ -210,7 +172,6 @@ function emptyMonthlyReport(month: string, monthLabel: string, expectedWorkingDa
 
 export async function getMonthlyPerformanceReport(profile: UserProfile, month = new Date().toISOString().slice(0, 7)) {
   const reportMonth = parseReportMonth(month);
-
   if (!isSupabaseConfigured()) {
     return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, "Supabase is not configured.");
   }
@@ -232,194 +193,177 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
     return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, profilesError.message);
   }
 
-  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((employee) => employee.id);
+  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((e) => e.id);
   let supportLogs: DailySupportLog[] = [];
   let testingLogs: DailyTestingLog[] = [];
-  let adjustments: MonthlyAdjustmentRow[] = [];
+  let adjustments: Array<{ employee_id: string; report_month: string; support_adjustment: number; testing_adjustment: number; manager_remarks: string | null }> = [];
 
   if (employeeIds.length > 0) {
-    const [{ data: supportData, error: supportError }, { data: testingData, error: testingError }, { data: adjustmentData, error: adjustmentError }] = await Promise.all([
+    const [sr, tr, ar] = await Promise.all([
       supabase.from("daily_support_logs").select("*").gte("log_date", reportMonth.startDate).lte("log_date", reportMonth.endDate).in("employee_id", employeeIds),
       supabase.from("daily_testing_logs").select("*").gte("log_date", reportMonth.startDate).lte("log_date", reportMonth.endDate).in("employee_id", employeeIds),
       supabase.from("monthly_performance_adjustments").select("*").eq("report_month", reportMonth.startDate).in("employee_id", employeeIds),
     ]);
 
-    if (supportError && isSchemaCacheError(supportError)) {
+    if (sr.error && isSchemaCacheError(sr.error)) {
       const legacy = await fetchLegacyOperations(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds);
-      if (legacy.error) {
-        return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, legacy.error.message);
-      }
+      if (legacy.error) return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, legacy.error.message);
       supportLogs = legacy.data.map(toSupportLog);
-    } else if (supportError) {
-      return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, supportError.message);
+    } else if (sr.error) {
+      return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, sr.error.message);
     } else {
-      supportLogs = (supportData ?? []) as DailySupportLog[];
+      supportLogs = (sr.data ?? []) as DailySupportLog[];
     }
 
-    if (testingError && isSchemaCacheError(testingError)) {
+    if (tr.error && isSchemaCacheError(tr.error)) {
       const legacy = await fetchLegacyOperations(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds);
-      if (legacy.error) {
-        return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, legacy.error.message);
-      }
-      testingLogs = legacy.data.map(toTestingLog);
-    } else if (testingError) {
-      return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, testingError.message);
+      if (legacy.error) return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, legacy.error.message);
+      testingLogs = legacy.data.flatMap(toTestingLogs);
+    } else if (tr.error) {
+      return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, tr.error.message);
     } else {
-      testingLogs = (testingData ?? []) as DailyTestingLog[];
+      testingLogs = (tr.data ?? []) as DailyTestingLog[];
     }
 
-    if (!(supportError && isSchemaCacheError(supportError)) || !(testingError && isSchemaCacheError(testingError))) {
-      const legacy = await fetchLegacyOperations(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds);
-      if (!legacy.error) {
-        const supportKeys = new Set(supportLogs.map((log) => `${log.employee_id}:${log.log_date}`));
-        const testingKeys = new Set(testingLogs.map((log) => `${log.employee_id}:${log.log_date}`));
-
-        for (const legacyLog of legacy.data) {
-          const key = `${legacyLog.employee_id}:${legacyLog.operation_date}`;
-          if (!supportKeys.has(key)) {
-            supportLogs.push(toSupportLog(legacyLog));
-            supportKeys.add(key);
-          }
-
-          if (legacyLog.current_testing_task && !testingKeys.has(key)) {
-            testingLogs.push(toTestingLog(legacyLog));
-            testingKeys.add(key);
-          }
-        }
-      }
+    if (ar.error && !isSchemaCacheError(ar.error)) {
+      return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, ar.error.message);
     }
-
-    if (!adjustmentError || !isSchemaCacheError(adjustmentError)) {
-      if (adjustmentError) {
-        return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, adjustmentError.message);
-      }
-      adjustments = (adjustmentData ?? []) as MonthlyAdjustmentRow[];
-    }
+    adjustments = (ar.data ?? []) as typeof adjustments;
   }
 
-  const supportLogsByEmployee = new Map<string, DailySupportLog[]>();
+  // Group logs by employee
+  const supportByEmp = new Map<string, DailySupportLog[]>();
   for (const log of supportLogs) {
-    supportLogsByEmployee.set(log.employee_id, [...(supportLogsByEmployee.get(log.employee_id) ?? []), log]);
+    supportByEmp.set(log.employee_id, [...(supportByEmp.get(log.employee_id) ?? []), log]);
   }
-
-  const testingLogsByEmployee = new Map<string, DailyTestingLog[]>();
+  const testingByEmp = new Map<string, DailyTestingLog[]>();
   for (const log of testingLogs) {
-    testingLogsByEmployee.set(log.employee_id, [...(testingLogsByEmployee.get(log.employee_id) ?? []), log]);
+    testingByEmp.set(log.employee_id, [...(testingByEmp.get(log.employee_id) ?? []), log]);
   }
-  const adjustmentsByEmployee = new Map(adjustments.map((adjustment) => [adjustment.employee_id, adjustment]));
-  const baseRows = ((profiles ?? []) as unknown as ProfileRow[]).map((employee) => {
-    const roleRelation = Array.isArray(employee.roles) ? employee.roles[0] : employee.roles;
-    const employeeSupportLogs = supportLogsByEmployee.get(employee.id) ?? [];
-    const employeeTestingLogs = testingLogsByEmployee.get(employee.id) ?? [];
-    const activeSupportLogs = employeeSupportLogs.filter((log) => log.attendance_status !== "leave");
-    const supportDays = activeSupportLogs.length;
-    const testingDays = employeeTestingLogs.length;
-    const totalTickets = activeSupportLogs.reduce((sum, log) => sum + log.tickets_handled, 0);
-    const totalChats = activeSupportLogs.reduce((sum, log) => sum + log.chats_handled, 0);
-    const totalTestingTasks = employeeTestingLogs.filter((log) => log.testing_task.trim()).length;
-    const completedTestingTasks = employeeTestingLogs.filter((log) => log.status === "completed").length;
-    const bugsFound = employeeTestingLogs.reduce((sum, log) => sum + log.bugs_found, 0);
-    const criticalBugsFound = employeeTestingLogs.reduce((sum, log) => sum + log.critical_bugs_found, 0);
+
+  // Build rows: compute per-day scores, then average for the month
+  const rows: MonthlyPerformanceMetrics[] = ((profiles ?? []) as unknown as ProfileRow[]).map((emp) => {
+    const role = Array.isArray(emp.roles) ? emp.roles[0]?.name : emp.roles?.name ?? "support_engineer";
+
+    const empSupportLogs = supportByEmp.get(emp.id) ?? [];
+    const empTestingLogs = testingByEmp.get(emp.id) ?? [];
+
+    // Group by date
+    const supportByDate = new Map<string, DailySupportLog>();
+    for (const sl of empSupportLogs) supportByDate.set(sl.log_date, sl);
+    const testingByDate = new Map<string, DailyTestingLog[]>();
+    for (const tl of empTestingLogs) {
+      const arr = testingByDate.get(tl.log_date) ?? [];
+      arr.push(tl);
+      testingByDate.set(tl.log_date, arr);
+    }
+
+    const allDates = new Set<string>([...supportByDate.keys(), ...testingByDate.keys()]);
+
+    // Compute per-day scores
+    const dailySupportScores: number[] = [];
+    const dailyTestingScores: number[] = [];
+    const dailyFinalScores: number[] = [];
+
+    for (const date of allDates) {
+      const sl = supportByDate.get(date) ?? null;
+      const tlogs = testingByDate.get(date) ?? [];
+
+      const hasSupport = sl !== null && sl.attendance_status !== "leave";
+      // Testing entries that are not "No Testing Assigned" count as real testing work
+      const realTestingLogs = tlogs.filter((tl) => tl.application_name && tl.application_name !== "No Testing Assigned");
+      const hasTesting = realTestingLogs.length > 0;
+
+      if (hasSupport) {
+        const supportScore = calculateDailySupportScore(
+          sl!.ticket_rating,
+          sl!.chat_rating,
+          sl!.documentation_rating,
+        );
+        dailySupportScores.push(supportScore);
+
+        if (hasTesting) {
+          const taskRatings = realTestingLogs.map((tl) => tl.task_completion ?? 5);
+          const qualityScores = realTestingLogs.map((tl) => testingQualityToScore[tl.testing_quality] ?? 3);
+          const testingScore = calculateDailyTestingScore(taskRatings, qualityScores);
+          dailyTestingScores.push(testingScore);
+          dailyFinalScores.push(calculateDailyFinalScore(supportScore, testingScore, true, true));
+        } else {
+          dailyFinalScores.push(calculateDailyFinalScore(supportScore, 0, true, false));
+        }
+      } else if (hasTesting) {
+        const taskRatings = realTestingLogs.map((tl) => tl.task_completion ?? 5);
+        const qualityScores = realTestingLogs.map((tl) => testingQualityToScore[tl.testing_quality] ?? 3);
+        const testingScore = calculateDailyTestingScore(taskRatings, qualityScores);
+        dailyTestingScores.push(testingScore);
+        dailyFinalScores.push(calculateDailyFinalScore(0, testingScore, false, true));
+      }
+    }
+
+    const avgSupport = dailySupportScores.length > 0
+      ? round(dailySupportScores.reduce((a, b) => a + b, 0) / dailySupportScores.length, 2) : 0;
+    const avgTesting = dailyTestingScores.length > 0
+      ? round(dailyTestingScores.reduce((a, b) => a + b, 0) / dailyTestingScores.length, 2) : 0;
+    const avgDaily = dailyFinalScores.length > 0
+      ? round(dailyFinalScores.reduce((a, b) => a + b, 0) / dailyFinalScores.length, 2) : 0;
+
+    // Monthly final = average of daily final scores
+    const finalScore = avgDaily;
+    const { rating, label } = getStarRating(finalScore);
+
+    const appsTested = new Set(empTestingLogs.map((l) => l.application_name).filter((n) => n && n !== "No Testing Assigned"));
 
     return {
-      employee_id: employee.id,
-      full_name: employee.full_name,
-      role: roleRelation?.name ?? "support_engineer",
-      supportDays,
-      testingDays,
-      totalTickets,
-      totalChats,
-      avgTicketsPerSupportDay: supportDays > 0 ? round(totalTickets / supportDays, 1) : 0,
-      avgChatsPerSupportDay: supportDays > 0 ? round(totalChats / supportDays, 1) : 0,
-      totalTestingTasks,
-      completedTestingTasks,
-      bugsFound,
-      criticalBugsFound,
-      supportScore: 0,
-      testingScore: 0,
-      finalScore: 0,
-      managerAdjustmentSupport: adjustmentsByEmployee.get(employee.id)?.support_adjustment ?? 0,
-      managerAdjustmentTesting: adjustmentsByEmployee.get(employee.id)?.testing_adjustment ?? 0,
-      managerRemarks: adjustmentsByEmployee.get(employee.id)?.manager_remarks ?? "",
-    };
-  });
-
-  const totalSupportDays = baseRows.reduce((sum, row) => sum + row.supportDays, 0);
-  const totalTestingDays = baseRows.reduce((sum, row) => sum + row.testingDays, 0);
-  const teamAverages: TeamAverages = {
-    averageTicketsPerSupportDay: totalSupportDays > 0 ? baseRows.reduce((sum, row) => sum + row.totalTickets, 0) / totalSupportDays : 0,
-    averageChatsPerSupportDay: totalSupportDays > 0 ? baseRows.reduce((sum, row) => sum + row.totalChats, 0) / totalSupportDays : 0,
-    averageBugsFoundPerTestingDay: totalTestingDays > 0 ? baseRows.reduce((sum, row) => sum + row.bugsFound, 0) / totalTestingDays : 0,
-    averageCriticalBugsFoundPerTestingDay: totalTestingDays > 0 ? baseRows.reduce((sum, row) => sum + row.criticalBugsFound, 0) / totalTestingDays : 0,
-  };
-
-  const rows = baseRows.map((row) => {
-    const supportScore = calculateSupportScore(
-      row.supportDays,
-      row.avgTicketsPerSupportDay,
-      row.avgChatsPerSupportDay,
-      teamAverages,
-      reportMonth.expectedWorkingDays,
-      row.managerAdjustmentSupport,
-    );
-    const testingScore = calculateTestingScore(
-      row.testingDays,
-      row.totalTestingTasks,
-      row.completedTestingTasks,
-      row.bugsFound,
-      row.criticalBugsFound,
-      teamAverages,
-      reportMonth.expectedWorkingDays,
-      row.managerAdjustmentTesting,
-    );
-    const finalScore = row.role === "qa_engineer"
-      ? testingScore
-      : calculateFinalScore(supportScore, testingScore, row.supportDays, row.testingDays, reportMonth.expectedWorkingDays);
-
-    return {
-      ...row,
-      supportScore,
-      testingScore,
+      employee_id: emp.id,
+      full_name: emp.full_name,
+      role: role as AppRole,
+      supportDays: empSupportLogs.filter((l) => l.attendance_status !== "leave").length,
+      testingDays: new Set(empTestingLogs.filter((l) => l.application_name && l.application_name !== "No Testing Assigned").map((l) => l.log_date)).size,
+      supportScore: avgSupport,
+      testingScore: avgTesting,
+      averageDailyScore: avgDaily,
       finalScore,
+      starRating: rating,
+      ratingLabel: label,
+      totalTickets: empSupportLogs.reduce((s, l) => s + l.tickets_handled, 0),
+      totalChats: empSupportLogs.reduce((s, l) => s + l.chats_handled, 0),
+      totalTestingEntries: empTestingLogs.filter((l) => l.application_name && l.application_name !== "No Testing Assigned").length,
+      appsTested: appsTested.size,
+      bugsFound: empTestingLogs.reduce((s, l) => s + l.bugs_found, 0),
+      criticalBugsFound: empTestingLogs.reduce((s, l) => s + l.critical_bugs_found, 0),
+      managerRemarks: "",
     };
   });
 
-  const average = (values: number[]) => (values.length > 0 ? round(values.reduce((sum, value) => sum + value, 0) / values.length, 1) : 0);
-  const supportRows = rows.filter((row) => row.role !== "qa_engineer");
-  const bestBy = (field: "supportScore" | "testingScore" | "finalScore", candidates = rows) => [...candidates].sort((a, b) => b[field] - a[field])[0]?.full_name ?? null;
+  const avg = (v: number[]) => (v.length > 0 ? round(v.reduce((s, n) => s + n, 0) / v.length, 1) : 0);
+  const workRows = rows.filter((r) => r.supportDays > 0 || r.testingDays > 0);
+  const supportRows = rows.filter((r) => r.supportDays > 0);
+  const testingRows = rows.filter((r) => r.testingDays > 0);
+  const best = (f: "supportScore" | "testingScore" | "finalScore", c = workRows) => [...c].sort((a, b) => b[f] - a[f])[0]?.full_name ?? null;
+
   const summary: MonthlyPerformanceSummary = {
-    month: reportMonth.month,
-    monthLabel: reportMonth.monthLabel,
-    totalTeamTickets: rows.reduce((sum, row) => sum + row.totalTickets, 0),
-    totalTeamChats: rows.reduce((sum, row) => sum + row.totalChats, 0),
-    totalTestingTasks: rows.reduce((sum, row) => sum + row.totalTestingTasks, 0),
-    totalBugsFound: rows.reduce((sum, row) => sum + row.bugsFound, 0),
-    averageSupportScore: average(supportRows.map((row) => row.supportScore)),
-    averageTestingScore: average(rows.map((row) => row.testingScore)),
-    averageFinalScore: average(rows.map((row) => row.finalScore)),
-    bestSupportPerformer: bestBy("supportScore", supportRows),
-    bestTestingPerformer: bestBy("testingScore"),
-    overallBestPerformer: bestBy("finalScore"),
-    expectedWorkingDays: reportMonth.expectedWorkingDays,
+    month: reportMonth.month, monthLabel: reportMonth.monthLabel, expectedWorkingDays: reportMonth.expectedWorkingDays,
+    totalTeamTickets: rows.reduce((s, r) => s + r.totalTickets, 0),
+    totalTeamChats: rows.reduce((s, r) => s + r.totalChats, 0),
+    totalTestingEntries: rows.reduce((s, r) => s + r.totalTestingEntries, 0),
+    totalAppsTested: rows.reduce((s, r) => s + r.appsTested, 0),
+    totalBugsFound: rows.reduce((s, r) => s + r.bugsFound, 0),
+    totalCriticalBugs: rows.reduce((s, r) => s + r.criticalBugsFound, 0),
+    averageSupportScore: avg(supportRows.map((r) => r.supportScore)),
+    averageTestingScore: avg(testingRows.map((r) => r.testingScore)),
+    averageDailyScore: avg(workRows.map((r) => r.averageDailyScore)),
+    averageFinalScore: avg(workRows.map((r) => r.finalScore)),
+    bestSupportPerformer: best("supportScore", supportRows),
+    bestTestingPerformer: best("testingScore", testingRows),
+    overallBestPerformer: best("finalScore"),
   };
 
-  return {
-    month: reportMonth.month,
-    monthLabel: reportMonth.monthLabel,
-    expectedWorkingDays: reportMonth.expectedWorkingDays,
-    summary,
-    rows,
-    error: null,
-  };
+  return { month: reportMonth.month, monthLabel: reportMonth.monthLabel, expectedWorkingDays: reportMonth.expectedWorkingDays, summary, rows, error: null };
 }
 
 export async function getDailyOperationsPageData(profile: UserProfile, date = todayIso()) {
   if (!isSupabaseConfigured()) {
-    return {
-      date,
-      rows: [] as TeamMemberDailyRow[],
-      error: "Supabase is not configured.",
-    };
+    return { date, rows: [] as TeamMemberDailyRow[], error: "Supabase is not configured." };
   }
 
   const supabase = await createClient();
@@ -436,76 +380,68 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
     : await profileQuery.eq("id", profile.id);
 
   if (profilesError) {
-    return { date, rows: [], myOperation: null, error: profilesError.message };
+    return { date, rows: [], error: profilesError.message };
   }
 
-  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((employee) => employee.id);
+  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((e) => e.id);
   let supportLogs: DailySupportLog[] = [];
   let testingLogs: DailyTestingLog[] = [];
 
   if (employeeIds.length > 0) {
-    const [{ data: supportData, error: supportError }, { data: testingData, error: testingError }] = await Promise.all([
+    const [sr, tr] = await Promise.all([
       supabase.from("daily_support_logs").select("*").eq("log_date", date).in("employee_id", employeeIds),
       supabase.from("daily_testing_logs").select("*").eq("log_date", date).in("employee_id", employeeIds),
     ]);
 
-    if (supportError && isSchemaCacheError(supportError)) {
+    if (sr.error && isSchemaCacheError(sr.error)) {
       const legacy = await fetchLegacyOperations(supabase, date, undefined, employeeIds);
-      if (legacy.error) {
-        return { date, rows: [], error: legacy.error.message };
-      }
+      if (legacy.error) return { date, rows: [], error: legacy.error.message };
       supportLogs = legacy.data.map(toSupportLog);
-    } else if (supportError) {
-      return { date, rows: [], error: supportError.message };
+    } else if (sr.error) {
+      return { date, rows: [], error: sr.error.message };
     } else {
-      supportLogs = (supportData ?? []) as DailySupportLog[];
+      supportLogs = (sr.data ?? []) as DailySupportLog[];
     }
 
-    if (testingError && isSchemaCacheError(testingError)) {
+    if (tr.error && isSchemaCacheError(tr.error)) {
       const legacy = await fetchLegacyOperations(supabase, date, undefined, employeeIds);
-      if (legacy.error) {
-        return { date, rows: [], error: legacy.error.message };
-      }
-      testingLogs = legacy.data.map(toTestingLog);
-    } else if (testingError) {
-      return { date, rows: [], error: testingError.message };
+      if (legacy.error) return { date, rows: [], error: legacy.error.message };
+      testingLogs = legacy.data.flatMap(toTestingLogs);
+    } else if (tr.error) {
+      return { date, rows: [], error: tr.error.message };
     } else {
-      testingLogs = (testingData ?? []) as DailyTestingLog[];
+      testingLogs = (tr.data ?? []) as DailyTestingLog[];
     }
   }
 
-  const supportLogByEmployee = new Map(supportLogs.map((log) => [log.employee_id, log]));
-  const testingLogByEmployee = new Map(testingLogs.map((log) => [log.employee_id, log]));
-  const rows = ((profiles ?? []) as unknown as ProfileRow[]).map((employee) => {
-    const roleRelation = Array.isArray(employee.roles) ? employee.roles[0] : employee.roles;
+  const supportByEmp = new Map(supportLogs.map((l) => [l.employee_id, l]));
+  const testingByEmp = new Map<string, DailyTestingLog[]>();
+  for (const log of testingLogs) {
+    const existing = testingByEmp.get(log.employee_id) ?? [];
+    existing.push(log);
+    testingByEmp.set(log.employee_id, existing);
+  }
+
+  const rows = ((profiles ?? []) as unknown as ProfileRow[]).map((emp) => {
+    const role = Array.isArray(emp.roles) ? emp.roles[0]?.name : emp.roles?.name ?? "support_engineer";
     return {
-      employee_id: employee.id,
-      full_name: employee.full_name,
-      email: employee.email,
-      role: roleRelation?.name ?? "support_engineer",
-      shift: employee.shift,
-      avatar_url: employee.avatar_url,
-      supportLog: supportLogByEmployee.get(employee.id) ?? null,
-      testingLog: testingLogByEmployee.get(employee.id) ?? null,
+      employee_id: emp.id,
+      full_name: emp.full_name,
+      email: emp.email,
+      role: role as AppRole,
+      shift: emp.shift,
+      avatar_url: emp.avatar_url,
+      supportLog: supportByEmp.get(emp.id) ?? null,
+      testingLogs: testingByEmp.get(emp.id) ?? [],
     };
   });
 
-  return {
-    date,
-    rows,
-    error: null,
-  };
+  return { date, rows, error: null };
 }
 
 export async function getDailyOperationsDashboardData(profile: UserProfile, range: DashboardRange = "today") {
   if (!isSupabaseConfigured()) {
-    return {
-      range,
-      startDate: todayIso(),
-      endDate: todayIso(),
-      rows: [] as TeamMemberDailyRow[],
-      error: "Supabase is not configured.",
-    };
+    return { range, startDate: todayIso(), endDate: todayIso(), rows: [] as TeamMemberDailyRow[], error: "Supabase is not configured." };
   }
 
   const { startDate, endDate, label } = getDashboardDateRange(range);
@@ -526,75 +462,62 @@ export async function getDailyOperationsDashboardData(profile: UserProfile, rang
     return { range, startDate, endDate, rows: [], error: profilesError.message };
   }
 
-  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((employee) => employee.id);
+  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((e) => e.id);
   let supportLogs: DailySupportLog[] = [];
   let testingLogs: DailyTestingLog[] = [];
 
   if (employeeIds.length > 0) {
-    const [{ data: supportData, error: supportError }, { data: testingData, error: testingError }] = await Promise.all([
+    const [sr, tr] = await Promise.all([
       supabase.from("daily_support_logs").select("*").gte("log_date", startDate).lte("log_date", endDate).in("employee_id", employeeIds).order("log_date", { ascending: false }),
       supabase.from("daily_testing_logs").select("*").gte("log_date", startDate).lte("log_date", endDate).in("employee_id", employeeIds).order("log_date", { ascending: false }),
     ]);
 
-    if (supportError && isSchemaCacheError(supportError)) {
+    if (sr.error && isSchemaCacheError(sr.error)) {
       const legacy = await fetchLegacyOperations(supabase, startDate, endDate, employeeIds);
-      if (legacy.error) {
-        return { range, startDate, endDate, rows: [], error: legacy.error.message };
-      }
+      if (legacy.error) return { range, startDate, endDate, rows: [], error: legacy.error.message };
       supportLogs = legacy.data.map(toSupportLog);
-    } else if (supportError) {
-      return { range, startDate, endDate, rows: [], error: supportError.message };
+    } else if (sr.error) {
+      return { range, startDate, endDate, rows: [], error: sr.error.message };
     } else {
-      supportLogs = (supportData ?? []) as DailySupportLog[];
+      supportLogs = (sr.data ?? []) as DailySupportLog[];
     }
 
-    if (testingError && isSchemaCacheError(testingError)) {
+    if (tr.error && isSchemaCacheError(tr.error)) {
       const legacy = await fetchLegacyOperations(supabase, startDate, endDate, employeeIds);
-      if (legacy.error) {
-        return { range, startDate, endDate, rows: [], error: legacy.error.message };
-      }
-      testingLogs = legacy.data.map(toTestingLog);
-    } else if (testingError) {
-      return { range, startDate, endDate, rows: [], error: testingError.message };
+      if (legacy.error) return { range, startDate, endDate, rows: [], error: legacy.error.message };
+      testingLogs = legacy.data.flatMap(toTestingLogs);
+    } else if (tr.error) {
+      return { range, startDate, endDate, rows: [], error: tr.error.message };
     } else {
-      testingLogs = (testingData ?? []) as DailyTestingLog[];
+      testingLogs = (tr.data ?? []) as DailyTestingLog[];
     }
   }
 
-  const latestSupportLogByEmployee = new Map<string, DailySupportLog>();
+  const latestSupportByEmp = new Map<string, DailySupportLog>();
   for (const log of supportLogs) {
-    if (!latestSupportLogByEmployee.has(log.employee_id)) {
-      latestSupportLogByEmployee.set(log.employee_id, log);
-    }
+    if (!latestSupportByEmp.has(log.employee_id)) latestSupportByEmp.set(log.employee_id, log);
   }
 
-  const latestTestingLogByEmployee = new Map<string, DailyTestingLog>();
+  const testingByEmp = new Map<string, DailyTestingLog[]>();
   for (const log of testingLogs) {
-    if (!latestTestingLogByEmployee.has(log.employee_id)) {
-      latestTestingLogByEmployee.set(log.employee_id, log);
-    }
+    const existing = testingByEmp.get(log.employee_id) ?? [];
+    existing.push(log);
+    testingByEmp.set(log.employee_id, existing);
   }
 
-  const rows = ((profiles ?? []) as unknown as ProfileRow[]).map((employee) => {
-    const roleRelation = Array.isArray(employee.roles) ? employee.roles[0] : employee.roles;
+  const rows = ((profiles ?? []) as unknown as ProfileRow[]).map((emp) => {
+    const role = Array.isArray(emp.roles) ? emp.roles[0]?.name : emp.roles?.name ?? "support_engineer";
     return {
-      employee_id: employee.id,
-      full_name: employee.full_name,
-      email: employee.email,
-      role: roleRelation?.name ?? "support_engineer",
-      shift: employee.shift,
-      avatar_url: employee.avatar_url,
-      supportLog: latestSupportLogByEmployee.get(employee.id) ?? null,
-      testingLog: latestTestingLogByEmployee.get(employee.id) ?? null,
+      employee_id: emp.id,
+      full_name: emp.full_name,
+      email: emp.email,
+      role: role as AppRole,
+      shift: emp.shift,
+      avatar_url: emp.avatar_url,
+      supportLog: latestSupportByEmp.get(emp.id) ?? null,
+      testingLogs: testingByEmp.get(emp.id) ?? [],
     };
   });
 
-  return {
-    range,
-    rangeLabel: label,
-    startDate,
-    endDate,
-    rows,
-    error: null,
-  };
+  return { range, rangeLabel: label, startDate, endDate, rows, error: null };
 }

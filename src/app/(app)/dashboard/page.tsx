@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { FileText, Headphones, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { requireUser } from "@/lib/auth/session";
 import { getDailyOperationsDashboardData } from "@/features/daily-operations/queries";
@@ -15,7 +17,7 @@ export default async function DashboardPage() {
 
   const yesterdayTickets = yesterdayData.rows.reduce((sum, row) => sum + (row.supportLog?.tickets_handled ?? 0), 0);
   const yesterdayChats = yesterdayData.rows.reduce((sum, row) => sum + (row.supportLog?.chats_handled ?? 0), 0);
-  const yesterdayTesting = yesterdayData.rows.filter((row) => row.testingLog?.testing_task).length;
+  const yesterdayTesting = yesterdayData.rows.filter((row) => row.testingLogs.length > 0).length;
   const missingEntries = todayData.rows.filter((row) => !row.supportLog);
 
   return (

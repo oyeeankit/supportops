@@ -4,6 +4,8 @@ import { MonthlyReportClient } from "@/features/daily-operations/components/mont
 import { getMonthlyPerformanceReport } from "@/features/daily-operations/queries";
 import { requireUser } from "@/lib/auth/session";
 
+export const dynamic = "force-dynamic";
+
 function getSelectedMonth(params?: { month?: string; year?: string }) {
   const today = new Date();
   const month = params?.month?.match(/^\d{2}$/) ? params.month : String(today.getMonth() + 1).padStart(2, "0");

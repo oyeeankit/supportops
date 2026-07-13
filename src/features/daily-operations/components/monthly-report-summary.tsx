@@ -7,11 +7,14 @@ export function MonthlyReportSummary({ summary }: { summary: MonthlyPerformanceS
       <StatCard label="Month" value={summary.monthLabel} />
       <StatCard label="Team tickets" value={summary.totalTeamTickets} />
       <StatCard label="Team chats" value={summary.totalTeamChats} />
-      <StatCard label="Testing tasks" value={summary.totalTestingTasks} />
+      <StatCard label="Testing entries" value={summary.totalTestingEntries} />
+      <StatCard label="Apps tested" value={summary.totalAppsTested} />
       <StatCard label="Bugs found" value={summary.totalBugsFound} />
-      <StatCard label="Avg support score" value={summary.averageSupportScore.toFixed(1)} />
-      <StatCard label="Avg testing score" value={summary.averageTestingScore.toFixed(1)} />
-      <StatCard label="Avg final score" value={summary.averageFinalScore.toFixed(1)} />
+      <StatCard label="Critical bugs" value={summary.totalCriticalBugs} />
+      <StatCard label="Avg support (/5)" value={summary.averageSupportScore.toFixed(2)} />
+      <StatCard label="Avg testing (/5)" value={summary.averageTestingScore.toFixed(2)} />
+      <StatCard label="Avg daily score (/5)" value={summary.averageDailyScore.toFixed(2)} />
+      <StatCard label="Avg final score (/5)" value={summary.averageFinalScore.toFixed(2)} />
       <StatCard label="Best support" value={summary.bestSupportPerformer ?? "-"} />
       <StatCard label="Best testing" value={summary.bestTestingPerformer ?? "-"} />
       <StatCard label="Overall best" value={summary.overallBestPerformer ?? "-"} />

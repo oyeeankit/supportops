@@ -26,9 +26,13 @@ export function AppLoadingProvider({ children }: { children: React.ReactNode }) 
     setState((current) => ({ ...current, isLoading: false }));
   }, []);
 
+  const routeKey = `${pathname}${searchParams?.toString() ?? ""}`;
   useEffect(() => {
-    stopLoading();
-  }, [pathname, searchParams, stopLoading]);
+    const id = setTimeout(() => {
+      setState((current) => ({ ...current, isLoading: false }));
+    }, 0);
+    return () => clearTimeout(id);
+  }, [routeKey]);
 
   const value = useMemo(
     () => ({
