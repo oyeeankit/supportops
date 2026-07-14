@@ -107,7 +107,7 @@ export async function saveDailyOperationAction(
     p_work_focus: supportParsed.data.work_focus ?? "support",
     p_day_status: supportParsed.data.day_status ?? "support",
     p_daily_remarks: supportParsed.data.daily_remarks ?? null,
-    p_testing_entries: JSON.stringify(validatedEntries),
+    p_testing_entries: validatedEntries,
     p_profile_id: profile.id,
     p_ticket_rating: supportParsed.data.ticket_rating ?? null,
     p_chat_rating: supportParsed.data.chat_rating ?? null,

@@ -2687,3 +2687,248 @@ https://react.dev/link/hydration-mismatch
     at performWorkOnRoot (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:9061:150)
     at performWorkOnRootViaSchedulerTask (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:10255:9)
     at MessagePort.performWorkUntilDeadline (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_1amofcm._.js:2647:64) (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:3439:25)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <RedirectErrorBoundary router={{...}}>
+      <InnerLayoutRouter url={"/operati..."} tree={[...]} params={{}} cacheNode={{rsc:{...}, ...}} segmentPath={[...]} ...>
+        <SegmentViewNode type="page" pagePath="(app)/oper...">
+          <SegmentTrieNode>
+          <OperationsPage>
+            <div className="space-y-6">
+              <div>
+              <div>
+              <DailyEntryForm employeeId="b5865fb6-7..." date="2026-07-01" supportLog={{id:"6ad781...", ...}} ...>
+                <div className="relative s...">
+                  ...
+                    <CardContent>
+                      <div className="p-6 pt-0">
+                        <div className="grid gap-4...">
+                          <Field>
+                          <Field label="Employee">
+                            <div className="space-y-2">
+                              <Label>
+                              <EmployeeSelect name="employee" employees={[...]} selectedEmployeeId="b5865fb6-7..." ...>
+                                <Select name="employee" value="b5865fb6-7..." disabled={false} ...>
+                                  <select
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2..."
+                                    name="employee"
+                                    value="b5865fb6-78f2-4846-8cc5-14d164263e09"
+                                    disabled={false}
+                                    onChange={function onChange}
+                                    required={true}
+-                                   fdprocessedid="lydx1"
+                                  >
+                  ...
+                    <div className="rounded-lg...">
+                      <CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="p-6 pt-0 s...">
+                          <div>
+                          <div className="grid gap-3...">
+                            <div className="rounded-md...">
+                              <div className="flex items...">
+                                <div>
+                                <Button type="button" size="sm" variant="outline" disabled={false} ...>
+                                  <button
+                                    className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-m..."
+                                    type="button"
+                                    disabled={false}
+                                    onClick={function onClick}
+-                                   fdprocessedid="iy6668"
+                                  >
++                                   Edit log
+                              ...
+                            <div className="rounded-md...">
+                              <div className="flex items...">
+                                <div>
+                                <Button type="button" size="sm" variant="outline" disabled={false} ...>
+                                  <button
+                                    className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-m..."
+                                    type="button"
+                                    disabled={false}
+                                    onClick={function onClick}
+-                                   fdprocessedid="qxsam"
+                                  >
++                                   Edit log
+                              ...
+                            <div className="rounded-md...">
+                              <div className="flex items...">
+                                <div>
+                                <Button type="button" size="sm" variant="outline" disabled={false} ...>
+                                  <button
+                                    className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-m..."
+                                    type="button"
+                                    disabled={false}
+                                    onClick={function onClick}
+-                                   fdprocessedid="75mame"
+                                  >
++                                   Edit log
+                              ...
+                            <div className="rounded-md...">
+                              <div className="flex items...">
+                                <div>
+                                <Button type="button" size="sm" variant="outline" disabled={false} ...>
+                                  <button
+                                    className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-m..."
+                                    type="button"
+                                    disabled={false}
+                                    onClick={function onClick}
+-                                   fdprocessedid="fo7kph"
+                                  >
++                                   Edit log
+                              ...
+                            <div className="rounded-md...">
+                              <div className="flex items...">
+                                <div>
+                                <Button type="button" size="sm" variant="default" disabled={false} ...>
+                                  <button
+                                    className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-m..."
+                                    type="button"
+                                    disabled={false}
+                                    onClick={function onClick}
+-                                   fdprocessedid="12gmpt"
+                                  >
++                                   Edit log
+                              ...
+                  <div>
+                  <Card>
+                    <div className="rounded-lg...">
+                      <CardHeader>
+                      <CardContent>
+                        <div className="p-6 pt-0">
+                          <form action={function bound dispatchActionState} className="space-y-5">
+                            <input>
+                            <input>
+                            <input>
+                            <div className="grid gap-4...">
+                              <Field label="Applicatio..." error={undefined}>
+                                <div className="space-y-2">
+                                  <Label>
+                                  <Input name="applicatio..." defaultValue="" placeholder="e.g. CSVBox">
+                                    <input
+                                      type={undefined}
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py..."
+                                      name="application_name"
+                                      defaultValue=""
+                                      placeholder="e.g. CSVBox"
+-                                     fdprocessedid="ttrtcw"
+                                    >
+                              <Field label="Module" error={undefined}>
+                                <div className="space-y-2">
+                                  <Label>
+                                  <Input name="module_name" defaultValue="" placeholder="e.g. OCR">
+                                    <input
+                                      type={undefined}
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py..."
+                                      name="module_name"
+                                      defaultValue=""
+                                      placeholder="e.g. OCR"
+-                                     fdprocessedid="xfp3j"
+                                    >
+                              <Field label="Testing type" error={undefined}>
+                                <div className="space-y-2">
+                                  <Label>
+                                  <Select name="testing_type" defaultValue="functional">
+                                    <select
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py..."
+                                      name="testing_type"
+                                      defaultValue="functional"
+-                                     fdprocessedid="xhm8h"
+                                    >
+                              <Field label="Status" error={undefined}>
+                                <div className="space-y-2">
+                                  <Label>
+                                  <Select name="status" defaultValue="in_progress">
+                                    <select
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py..."
+                                      name="status"
+                                      defaultValue="in_progress"
+-                                     fdprocessedid="whk06m"
+                                    >
+                            <div className="grid gap-4...">
+                              <Field label="Testing task" error={undefined}>
+                                <div className="space-y-2">
+                                  <Label>
+                                  <Input name="testing_task" defaultValue="" placeholder="Regression...">
+                                    <input
+                                      type={undefined}
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py..."
+                                      name="testing_task"
+                                      defaultValue=""
+                                      placeholder="Regression testing"
+-                                     fdprocessedid="ul2ntg"
+                                    >
+                              <Field label="Bugs found" error={undefined}>
+                                <div className="space-y-2">
+                                  <Label>
+                                  <Input name="bugs_found" type="number" min="0" defaultValue={0}>
+                                    <input
+                                      type="number"
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py..."
+                                      name="bugs_found"
+                                      min="0"
+                                      defaultValue={0}
+-                                     fdprocessedid="8cl7j"
+                                    >
+                              <Field label="Critical bugs" error={undefined}>
+                                <div className="space-y-2">
+                                  <Label>
+                                  <Input name="critical_b..." type="number" min="0" defaultValue={0}>
+                                    <input
+                                      type="number"
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py..."
+                                      name="critical_bugs_found"
+                                      min="0"
+                                      defaultValue={0}
+-                                     fdprocessedid="u3vfm"
+                                    >
+                              <Field label="Testing notes" error={undefined}>
+                                <div className="space-y-2">
+                                  <Label>
+                                  <Input name="notes" defaultValue="" placeholder="Optional t...">
+                                    <input
+                                      type={undefined}
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py..."
+                                      name="notes"
+                                      defaultValue=""
+                                      placeholder="Optional testing context"
+-                                     fdprocessedid="ymho7"
+                                    >
+                            <div className="flex flex-...">
+                              <Button type="submit" name="submit_action" value="save" disabled={false}>
+                                <button
+                                  className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-med..."
+                                  type="submit"
+                                  name="submit_action"
+                                  value="save"
+                                  disabled={false}
+-                                 fdprocessedid="qi93a"
+                                >
++                                 Update testing log
+              ...
+        ...
+      ...
+ 
+    at <unknown> (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:3439:25)
+    at runWithFiberInDEV (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:965:74)
+    at emitPendingHydrationWarnings (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:3438:13)
+    at completeWork (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:7065:32)
+    at runWithFiberInDEV (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:965:74)
+    at completeUnitOfWork (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:9622:23)
+    at performUnitOfWork (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:9557:28)
+    at workLoopConcurrentByScheduler (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:9551:58)
+    at renderRootConcurrent (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:9534:71)
+    at performWorkOnRoot (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:9061:150)
+    at performWorkOnRootViaSchedulerTask (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:10255:9)
+    at MessagePort.performWorkUntilDeadline (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_1amofcm._.js:2647:64) (file://C:/Users/ASUS/Employee management system/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js:3439:25)

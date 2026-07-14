@@ -778,3 +778,7 @@ Creating turbopack project { dir: 'C:\\Users\\ASUS\\Employee management system',
  GET /operations?date=2026-07-07 200 in 414ms (next.js: 13ms, application-code: 401ms)
  GET /operations?date=2026-07-07&employee=dbe790fc-f63b-4052-9b5d-a25b11a331de 200 in 6.3s (next.js: 690ms, application-code: 5.6s)
  GET /operations?date=2026-07-07&employee=cb460033-1db5-47b4-b838-269ddf334107 200 in 3.0s (next.js: 44ms, application-code: 3.0s)
+ GET /operations?date=2026-07-07 200 in 2.8s (next.js: 116ms, application-code: 2.7s)
+ GET /operations?date=2026-07-07&employee=b5865fb6-78f2-4846-8cc5-14d164263e09 200 in 1592ms (next.js: 18ms, application-code: 1574ms)
+ GET /operations?date=2026-07-01&employee=b5865fb6-78f2-4846-8cc5-14d164263e09 200 in 5.3s (next.js: 341ms, application-code: 5.0s)
+ GET /operations?date=2026-07-01&employee=b5865fb6-78f2-4846-8cc5-14d164263e09 200 in 14.2s (next.js: 625ms, application-code: 13.5s)
