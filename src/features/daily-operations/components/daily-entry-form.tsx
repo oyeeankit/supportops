@@ -477,9 +477,24 @@ function TestingEntryCard({
               value={entry.application_name}
               placeholder="Select app..."
               onChange={(value) => {
-                onChange("application_name", value);
                 const platform = platformForApp[value] ?? "shopify";
-                onChange("platform", platform);
+                if (isNoTestingAssigned(value)) {
+                  onChange("application_name", value);
+                  onChange("platform", platform);
+                  onChange("module_name", "");
+                  onChange("testing_type", "functional");
+                  onChange("status", "in_progress");
+                  onChange("bugs_found", 0);
+                  onChange("critical_bugs_found", 0);
+                  onChange("testing_quality", "good");
+                  onChange("task_completion", 5);
+                  onChange("started_at", "");
+                  onChange("ended_at", "");
+                  onChange("notes", "");
+                } else {
+                  onChange("application_name", value);
+                  onChange("platform", platform);
+                }
               }}
             />
           </Field>
