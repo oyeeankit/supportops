@@ -118,12 +118,20 @@ export const testingEntryClientSchema = z
 export const monthlyPerformanceAdjustmentSchema = z.object({
   employee_id: z.string().uuid("Invalid employee."),
   report_month: z.string().regex(/^\d{4}-\d{2}-01$/, "Use a valid report month."),
-  support_adjustment: z.coerce.number().int().min(-10, "Minimum adjustment is -10.").max(10, "Maximum adjustment is +10."),
-  testing_adjustment: z.coerce.number().int().min(-10, "Minimum adjustment is -10.").max(10, "Maximum adjustment is +10."),
+  behavior_rating: z.coerce.number().int().min(1, "Minimum behavior rating is 1.").max(5, "Maximum behavior rating is 5."),
+  communication_rating: z.coerce.number().int().min(1, "Minimum communication rating is 1.").max(5, "Maximum communication rating is 5."),
+  ownership_rating: z.coerce.number().int().min(1, "Minimum ownership rating is 1.").max(5, "Maximum ownership rating is 5."),
+  discipline_rating: z.coerce.number().int().min(1, "Minimum discipline rating is 1.").max(5, "Maximum discipline rating is 5."),
+  manager_points: z.coerce.number().int().min(-10, "Minimum points is -10.").max(10, "Maximum points is +10."),
   manager_remarks: z
     .string()
     .trim()
     .max(500, "Remarks must be 500 characters or less.")
     .optional()
+    .nullable()
     .transform((value) => (value ? value : null)),
+  // @deprecated - replaced by behavior_rating, communication_rating, etc. and manager_points. Keep for backward compatibility.
+  support_adjustment: z.coerce.number().int().optional().default(0),
+  // @deprecated - replaced by normalized rating fields. Keep for backward compatibility.
+  testing_adjustment: z.coerce.number().int().optional().default(0),
 });

@@ -29,3 +29,11 @@ export const permissions = {
 export function hasRole(profile: UserProfile | null, allowedRoles: AppRole[]) {
   return Boolean(profile && allowedRoles.includes(profile.role));
 }
+
+export function canManageSupport(role: AppRole): boolean {
+  return role === "manager" || role === "support_engineer";
+}
+
+export function canManageTesting(role: AppRole): boolean {
+  return role === "manager" || role === "support_engineer" || role === "qa_engineer";
+}

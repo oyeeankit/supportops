@@ -1,6 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import type { AppRole, UserProfile } from "@/lib/auth/roles";
+import { canManageSupport, canManageTesting, type AppRole, type UserProfile } from "@/lib/auth/roles";
 import type { Shift } from "@/features/employees/types";
 import type { DailySupportLog, DailyTestingLog, TeamMemberDailyRow, TestingQuality } from "./types";
 import {
@@ -197,7 +197,20 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
   const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((e) => e.id);
   let supportLogs: DailySupportLog[] = [];
   let testingLogs: DailyTestingLog[] = [];
-  let adjustments: Array<{ employee_id: string; report_month: string; support_adjustment: number; testing_adjustment: number; manager_remarks: string | null }> = [];
+  let adjustments: Array<{
+    employee_id: string;
+    report_month: string;
+    // @deprecated - replaced by manager_points. Keep for backward compatibility.
+    support_adjustment: number;
+    // @deprecated - replaced by normalized rating fields. Keep for backward compatibility.
+    testing_adjustment: number;
+    manager_remarks: string | null;
+    behavior_rating?: number | null;
+    communication_rating?: number | null;
+    ownership_rating?: number | null;
+    discipline_rating?: number | null;
+    manager_points?: number | null;
+  }> = [];
 
   if (employeeIds.length > 0) {
     const [sr, tr, ar] = await Promise.all([
@@ -270,10 +283,10 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
       const sl = supportByDate.get(date) ?? null;
       const tlogs = testingByDate.get(date) ?? [];
 
-      const hasSupport = sl !== null && sl.attendance_status !== "leave";
+      const hasSupport = canManageSupport(role as AppRole) && sl !== null && sl.attendance_status !== "leave";
       // Testing entries that are not "No Testing Assigned" count as real testing work
       const realTestingLogs = tlogs.filter((tl) => tl.application_name && tl.application_name !== "No Testing Assigned");
-      const hasTesting = realTestingLogs.length > 0;
+      const hasTesting = canManageTesting(role as AppRole) && realTestingLogs.length > 0;
 
       if (hasSupport) {
         const supportScore = calculateDailySupportScore(
@@ -310,48 +323,65 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
 
     // Find manager monthly adjustments
     const adj = adjustments.find((a) => a.employee_id === emp.id);
-    const supportAdjustment = adj?.support_adjustment ?? 0;
-    const testingAdjustment = adj?.testing_adjustment ?? 0;
-    const managerRemarks = adj?.manager_remarks ?? "";
 
-    const hasSupport = dailySupportScores.length > 0;
-    const hasTesting = dailyTestingScores.length > 0;
-    let adjustmentEffect = 0;
+    // Normalize rating values from DB columns with JSON remark parsing fallback for old entries
+    let managerPoints = adj?.manager_points ?? adj?.support_adjustment ?? 0;
+    let behaviorRating = adj?.behavior_rating ?? 3;
+    let communicationRating = adj?.communication_rating ?? 3;
+    let ownershipRating = adj?.ownership_rating ?? 3;
+    let disciplineRating = adj?.discipline_rating ?? 3;
+    let managerRemarksText = adj?.manager_remarks ?? "";
 
-    if (hasSupport && hasTesting) {
-      adjustmentEffect = (supportAdjustment + testingAdjustment) / 40.0;
-    } else if (hasSupport) {
-      adjustmentEffect = supportAdjustment / 20.0;
-    } else if (hasTesting) {
-      adjustmentEffect = testingAdjustment / 20.0;
+    if (managerRemarksText && managerRemarksText.startsWith("{\"ratings\":")) {
+      try {
+        const parsed = JSON.parse(managerRemarksText);
+        if (parsed && typeof parsed === "object" && parsed.ratings) {
+          managerRemarksText = parsed.remarks ?? "";
+          behaviorRating = parsed.ratings.behavior ?? parsed.ratings.behaviour ?? behaviorRating;
+          communicationRating = parsed.ratings.communication ?? communicationRating;
+          ownershipRating = parsed.ratings.ownership ?? ownershipRating;
+          disciplineRating = parsed.ratings.discipline ?? disciplineRating;
+        }
+      } catch {}
     }
 
+    const adjustmentEffect = managerPoints / 20.0;
     const finalScore = clamp(round(avgDaily + adjustmentEffect, 2), 1.0, 5.0);
     const { rating, label } = getStarRating(finalScore);
 
     const appsTested = new Set(empTestingLogs.map((l) => l.application_name).filter((n) => n && n !== "No Testing Assigned"));
+    const supportEnabled = canManageSupport(role as AppRole);
+    const testingEnabled = canManageTesting(role as AppRole);
 
     return {
       employee_id: emp.id,
       full_name: emp.full_name,
       role: role as AppRole,
-      supportDays: empSupportLogs.filter((l) => l.attendance_status !== "leave").length,
-      testingDays: new Set(empTestingLogs.filter((l) => l.application_name && l.application_name !== "No Testing Assigned").map((l) => l.log_date)).size,
-      supportScore: avgSupport,
-      testingScore: avgTesting,
+      workingDays: allDates.size,
+      supportDays: supportEnabled ? empSupportLogs.filter((l) => l.attendance_status !== "leave").length : 0,
+      testingDays: testingEnabled ? new Set(empTestingLogs.filter((l) => l.application_name && l.application_name !== "No Testing Assigned").map((l) => l.log_date)).size : 0,
+      supportScore: supportEnabled ? avgSupport : 0,
+      testingScore: testingEnabled ? avgTesting : 0,
       averageDailyScore: avgDaily,
       finalScore,
       starRating: rating,
       ratingLabel: label,
-      totalTickets: empSupportLogs.reduce((s, l) => s + l.tickets_handled, 0),
-      totalChats: empSupportLogs.reduce((s, l) => s + l.chats_handled, 0),
-      totalTestingEntries: empTestingLogs.filter((l) => l.application_name && l.application_name !== "No Testing Assigned").length,
-      appsTested: appsTested.size,
-      bugsFound: empTestingLogs.reduce((s, l) => s + l.bugs_found, 0),
-      criticalBugsFound: empTestingLogs.reduce((s, l) => s + l.critical_bugs_found, 0),
-      supportAdjustment,
-      testingAdjustment,
-      managerRemarks,
+      totalTickets: supportEnabled ? empSupportLogs.reduce((s, l) => s + l.tickets_handled, 0) : 0,
+      totalChats: supportEnabled ? empSupportLogs.reduce((s, l) => s + l.chats_handled, 0) : 0,
+      totalTestingEntries: testingEnabled ? empTestingLogs.filter((l) => l.application_name && l.application_name !== "No Testing Assigned").length : 0,
+      appsTested: testingEnabled ? appsTested.size : 0,
+      bugsFound: testingEnabled ? empTestingLogs.reduce((s, l) => s + l.bugs_found, 0) : 0,
+      criticalBugsFound: testingEnabled ? empTestingLogs.reduce((s, l) => s + l.critical_bugs_found, 0) : 0,
+      // @deprecated - replaced by managerPoints. Keep for backward compatibility.
+      supportAdjustment: managerPoints,
+      // @deprecated - replaced by normalized rating fields. Keep for backward compatibility.
+      testingAdjustment: 0,
+      managerRemarks: managerRemarksText,
+      behaviorRating,
+      communicationRating,
+      ownershipRating,
+      disciplineRating,
+      managerPoints,
     };
   });
 

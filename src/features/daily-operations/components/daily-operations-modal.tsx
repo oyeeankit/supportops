@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { SearchableSelect, type SearchableGroup } from "@/components/ui/searchable-select";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, Minus, Plus } from "lucide-react";
-import type { AppRole } from "@/lib/auth/roles";
+import { cn } from "@/lib/utils/cn";
+import { canManageSupport, canManageTesting, type AppRole } from "@/lib/auth/roles";
 import {
   appsByPlatform,
   isNoTestingAssigned,
@@ -208,6 +209,7 @@ export function DailyOperationsModal({
               supportLog={supportLog}
               testingLogs={testingLogs}
               onSaved={onSaved}
+              employeeRole={employeeRole}
             />
           )}
         </div>
@@ -222,12 +224,14 @@ function ModalFormBody({
   supportLog,
   testingLogs,
   onSaved,
+  employeeRole,
 }: {
   employeeId: string;
   date: string;
   supportLog: DailySupportLog | null;
   testingLogs: DailyTestingLog[];
   onSaved: () => void;
+  employeeRole: AppRole;
 }) {
   const [state, formAction, pending] = useActionState(saveDailyOperationAction, initialState);
   const testingEntriesRef = useRef<HTMLInputElement>(null);
@@ -249,6 +253,9 @@ function ModalFormBody({
   const [supportOpen, setSupportOpen] = useState(true);
   const [testingOpen, setTestingOpen] = useState(true);
   const errorFor = (field: string) => state.fieldErrors?.[field]?.[0];
+
+  const showSupport = canManageSupport(employeeRole);
+  const showTesting = canManageTesting(employeeRole);
 
   const summary = useMemo(
     () => computeSummary(testingEntries, Number(ticketsHandled), Number(chatsHandled)),
@@ -293,7 +300,7 @@ function ModalFormBody({
 
   function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (testingEntriesRef.current) {
-      testingEntriesRef.current.value = JSON.stringify(testingEntries);
+      testingEntriesRef.current.value = JSON.stringify(showTesting ? testingEntries : []);
     }
   }
 
@@ -307,108 +314,112 @@ function ModalFormBody({
       <input type="hidden" name="stay_on_page" value="1" />
 
       {/* Support Summary */}
-      <div className="rounded-lg border border-border">
-        <button
-          type="button"
-          onClick={() => setSupportOpen(!supportOpen)}
-          className="flex w-full items-center justify-between px-4 py-3 text-lg font-semibold leading-none tracking-tight"
-        >
-          <span>Support Summary</span>
-          {supportOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </button>
-        {supportOpen && (
-          <div className="border-t border-border px-4 pb-4 pt-3">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Attendance Status" error={errorFor("attendance_status")}>
-                <Select
-                  value={attendanceStatus}
-                  onChange={(e) => setAttendanceStatus(e.target.value as AttendanceStatus)}
-                >
-                  {attendanceStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {attendanceStatusLabels[status]}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Ticket Count" error={errorFor("tickets_handled")}>
-                <Input
-                  name="tickets_handled"
-                  type="number"
-                  min="0"
-                  value={ticketsHandled}
-                  onChange={(e) => setTicketsHandled(Number(e.target.value))}
-                />
-              </Field>
-              <Field label="Chat Count" error={errorFor("chats_handled")}>
-                <Input
-                  name="chats_handled"
-                  type="number"
-                  min="0"
-                  value={chatsHandled}
-                  onChange={(e) => setChatsHandled(Number(e.target.value))}
-                />
-              </Field>
-              <Field label="Support Notes" error={errorFor("notes")}>
-                <textarea
-                  name="notes"
-                  value={supportNotes}
-                  onChange={(e) => setSupportNotes(e.target.value)}
-                  placeholder="Optional support context"
-                  className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
-              </Field>
+      {showSupport && (
+        <div className="rounded-lg border border-border">
+          <button
+            type="button"
+            onClick={() => setSupportOpen(!supportOpen)}
+            className="flex w-full items-center justify-between px-4 py-3 text-lg font-semibold leading-none tracking-tight"
+          >
+            <span>Support Summary</span>
+            {supportOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+          {supportOpen && (
+            <div className="border-t border-border px-4 pb-4 pt-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Attendance Status" error={errorFor("attendance_status")}>
+                  <Select
+                    value={attendanceStatus}
+                    onChange={(e) => setAttendanceStatus(e.target.value as AttendanceStatus)}
+                  >
+                    {attendanceStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {attendanceStatusLabels[status]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Ticket Count" error={errorFor("tickets_handled")}>
+                  <Input
+                    name="tickets_handled"
+                    type="number"
+                    min="0"
+                    value={ticketsHandled}
+                    onChange={(e) => setTicketsHandled(Number(e.target.value))}
+                  />
+                </Field>
+                <Field label="Chat Count" error={errorFor("chats_handled")}>
+                  <Input
+                    name="chats_handled"
+                    type="number"
+                    min="0"
+                    value={chatsHandled}
+                    onChange={(e) => setChatsHandled(Number(e.target.value))}
+                  />
+                </Field>
+                <Field label="Support Notes" error={errorFor("notes")}>
+                  <textarea
+                    name="notes"
+                    value={supportNotes}
+                    onChange={(e) => setSupportNotes(e.target.value)}
+                    placeholder="Optional support context"
+                    className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </Field>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Testing Activities */}
-      <div className="rounded-lg border border-border">
-        <button
-          type="button"
-          onClick={() => setTestingOpen(!testingOpen)}
-          className="flex w-full items-center justify-between px-4 py-3 text-lg font-semibold leading-none tracking-tight"
-        >
-          <span>Testing Activities</span>
-          {testingOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </button>
-        {testingOpen && (
-          <div className="border-t border-border px-4 pb-4 pt-3">
-            <div className="space-y-4">
-              <Button type="button" variant="outline" size="sm" onClick={addTestingEntry} disabled={pending}>
-                <Plus className="mr-1 h-4 w-4" /> Add Testing
-              </Button>
+      {showTesting && (
+        <div className="rounded-lg border border-border">
+          <button
+            type="button"
+            onClick={() => setTestingOpen(!testingOpen)}
+            className="flex w-full items-center justify-between px-4 py-3 text-lg font-semibold leading-none tracking-tight"
+          >
+            <span>Testing Activities</span>
+            {testingOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+          {testingOpen && (
+            <div className="border-t border-border px-4 pb-4 pt-3">
+              <div className="space-y-4">
+                <Button type="button" variant="outline" size="sm" onClick={addTestingEntry} disabled={pending}>
+                  <Plus className="mr-1 h-4 w-4" /> Add Testing
+                </Button>
 
-              {testingEntries.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No testing entries. Click &quot;Add Testing&quot; to add one.</p>
-              ) : (
-                <div className="space-y-4">
-                  {testingEntries.map((entry, index) => (
-                    <TestingEntryCard
-                      key={index}
-                      entry={entry}
-                      index={index}
-                      canRemove={testingEntries.length > 1}
-                      canMoveUp={index > 0}
-                      canMoveDown={index < testingEntries.length - 1}
-                      onChange={(field, value) => updateTestingEntry(index, field, value)}
-                      onRemove={() => removeTestingEntry(index)}
-                      onDuplicate={() => duplicateTestingEntry(index)}
-                      onMoveUp={() => moveTestingEntryUp(index)}
-                      onMoveDown={() => moveTestingEntryDown(index)}
-                    />
-                  ))}
-                </div>
-              )}
+                {testingEntries.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No testing entries. Click &quot;Add Testing&quot; to add one.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {testingEntries.map((entry, index) => (
+                      <TestingEntryCard
+                        key={index}
+                        entry={entry}
+                        index={index}
+                        canRemove={testingEntries.length > 1}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < testingEntries.length - 1}
+                        onChange={(field, value) => updateTestingEntry(index, field, value)}
+                        onRemove={() => removeTestingEntry(index)}
+                        onDuplicate={() => duplicateTestingEntry(index)}
+                        onMoveUp={() => moveTestingEntryUp(index)}
+                        onMoveDown={() => moveTestingEntryDown(index)}
+                      />
+                    ))}
+                  </div>
+                )}
 
-              <Button type="button" variant="outline" size="sm" onClick={addTestingEntry} disabled={pending}>
-                <Plus className="mr-1 h-4 w-4" /> Add Testing
-              </Button>
+                <Button type="button" variant="outline" size="sm" onClick={addTestingEntry} disabled={pending}>
+                  <Plus className="mr-1 h-4 w-4" /> Add Testing
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Daily Summary */}
       <Card>
@@ -417,16 +428,16 @@ function ModalFormBody({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            <StatCard label="Total Tickets" value={summary.totalTickets} />
-            <StatCard label="Total Chats" value={summary.totalChats} />
-            <StatCard label="Apps Tested" value={summary.totalAppsTested} />
-            <StatCard label="Testing Entries" value={summary.totalTestingEntries} />
-            <StatCard label="Total Bugs" value={summary.totalBugs} />
-            <StatCard label="Critical Bugs" value={summary.criticalBugs} />
-            <StatCard label="Completed" value={summary.completedTests} />
-            <StatCard label="In Progress" value={summary.inProgressTests} />
-            <StatCard label="Blocked" value={summary.blockedTests} />
-            <StatCard label="On Hold" value={summary.onHoldTests} />
+            {showSupport && <StatCard label="Total Tickets" value={summary.totalTickets} />}
+            {showSupport && <StatCard label="Total Chats" value={summary.totalChats} />}
+            {showTesting && <StatCard label="Apps Tested" value={summary.totalAppsTested} />}
+            {showTesting && <StatCard label="Testing Entries" value={summary.totalTestingEntries} />}
+            {showTesting && <StatCard label="Total Bugs" value={summary.totalBugs} />}
+            {showTesting && <StatCard label="Critical Bugs" value={summary.criticalBugs} />}
+            {showTesting && <StatCard label="Completed" value={summary.completedTests} />}
+            {showTesting && <StatCard label="In Progress" value={summary.inProgressTests} />}
+            {showTesting && <StatCard label="Blocked" value={summary.blockedTests} />}
+            {showTesting && <StatCard label="On Hold" value={summary.onHoldTests} />}
           </div>
         </CardContent>
       </Card>
@@ -457,6 +468,69 @@ function ModalFormBody({
   );
 }
 
+const testingModulesList = [
+  "Authentication & Profile",
+  "Dashboard Analytics",
+  "Report Generation & Exports",
+  "Billing / Checkout Flow",
+  "Search & Filter Grid",
+  "API Integrations",
+  "Database Migrations",
+  "CI/CD Pipeline Configurations",
+  "Responsive UI & Theme Toggling",
+  "General Feature QA"
+];
+
+const qualityLevels: { value: TestingQuality; stars: number; label: string }[] = [
+  { value: "poor", stars: 1, label: "Poor" },
+  { value: "fair", stars: 2, label: "Fair" },
+  { value: "good", stars: 3, label: "Good" },
+  { value: "excellent", stars: 4, label: "Excellent" },
+  { value: "outstanding", stars: 5, label: "Outstanding" },
+];
+
+function StarRating({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: TestingQuality;
+  onChange: (val: TestingQuality) => void;
+  disabled?: boolean;
+}) {
+  const currentLevel = qualityLevels.find((q) => q.value === value);
+  const currentStars = currentLevel ? currentLevel.stars : 3;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            const found = qualityLevels.find((q) => q.stars === star);
+            if (found) onChange(found.value);
+          }}
+          className="group rounded-md focus:outline-none transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Star
+            className={cn(
+              "h-6 w-6 transition-colors duration-150 cursor-pointer",
+              star <= currentStars 
+                ? "fill-yellow-400 text-yellow-400 group-hover:fill-yellow-500 group-hover:text-yellow-500" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          />
+        </button>
+      ))}
+      <span className="ml-2 text-xs font-medium text-muted-foreground">
+        {currentLevel?.label}
+      </span>
+    </div>
+  );
+}
+
 function TestingEntryCard({
   entry,
   index,
@@ -481,7 +555,6 @@ function TestingEntryCard({
   onMoveDown: () => void;
 }) {
   const entryLabel = `Testing #${index + 1}`;
-  const gridClass = "grid gap-4 md:grid-cols-2 xl:grid-cols-3";
 
   return (
     <Card>
@@ -509,8 +582,9 @@ function TestingEntryCard({
         </div>
       </div>
       <CardContent className="space-y-4 pt-4">
-        <div className={gridClass}>
-          <Field label="App Name">
+        {/* Row 1: App and Module */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Testing App">
             <SearchableSelect
               groups={appSelectGroups}
               value={entry.application_name}
@@ -523,7 +597,7 @@ function TestingEntryCard({
                   onChange("platform", platform);
                   onChange("module_name", "");
                   onChange("testing_type", "functional");
-                  onChange("status", "in_progress");
+                  onChange("status", "completed");
                   onChange("bugs_found", 0);
                   onChange("critical_bugs_found", 0);
                   onChange("testing_quality", "good");
@@ -538,60 +612,47 @@ function TestingEntryCard({
               }}
             />
           </Field>
-          <Field label="Module / Feature Tested">
-            <Input
+          <Field label="Module">
+            <Select
               value={entry.module_name}
               onChange={(e) => onChange("module_name", e.target.value)}
-              placeholder={isNoTestingAssigned(entry.application_name) ? "Optional (no testing assigned)" : "e.g. Import Products"}
+              disabled={isNoTestingAssigned(entry.application_name)}
+            >
+              <option value="">Select module...</option>
+              {testingModulesList.map((mod) => (
+                <option key={mod} value={mod}>
+                  {mod}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+
+        {/* Row 2: Bugs Found and Testing Quality */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Bugs Found">
+            <Input
+              type="number"
+              min="0"
+              value={entry.bugs_found}
+              onChange={(e) => onChange("bugs_found", Number(e.target.value))}
               disabled={isNoTestingAssigned(entry.application_name)}
             />
           </Field>
-        </div>
-
-        <div className={gridClass}>
-          <Field label="Testing Type">
-            <Select
-              value={entry.testing_type}
-              onChange={(e) => onChange("testing_type", e.target.value)}
-              disabled={isNoTestingAssigned(entry.application_name)}
-            >
-              {testingTypes.map((type) => (
-                <option key={type} value={type}>
-                  {testingTypeLabels[type]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Testing Status">
-            <Select
-              value={entry.status}
-              onChange={(e) => onChange("status", e.target.value)}
-              disabled={isNoTestingAssigned(entry.application_name)}
-            >
-              {testingStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {testingStatusLabels[status]}
-                </option>
-              ))}
-            </Select>
-          </Field>
           <Field label="Testing Quality">
-            <Select
-              value={entry.testing_quality}
-              onChange={(e) => onChange("testing_quality", e.target.value)}
-              disabled={isNoTestingAssigned(entry.application_name)}
-            >
-              {testingQualities.map((quality) => (
-                <option key={quality} value={quality}>
-                  {testingQualityLabels[quality]}
-                </option>
-              ))}
-            </Select>
+            <div className="flex h-10 items-center">
+              <StarRating
+                value={entry.testing_quality}
+                onChange={(val) => onChange("testing_quality", val)}
+                disabled={isNoTestingAssigned(entry.application_name)}
+              />
+            </div>
           </Field>
         </div>
 
+        {/* Row 3: Started At and Ended At */}
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Start Date & Time">
+          <Field label="Testing Started">
             <Input
               type="datetime-local"
               value={entry.started_at}
@@ -599,7 +660,7 @@ function TestingEntryCard({
               disabled={isNoTestingAssigned(entry.application_name)}
             />
           </Field>
-          <Field label="End Date & Time">
+          <Field label="Testing Ended">
             <Input
               type="datetime-local"
               value={entry.ended_at}
@@ -609,29 +670,9 @@ function TestingEntryCard({
           </Field>
         </div>
 
-        <div className={gridClass}>
-          <Field label="Bugs Found (Total)">
-            <Input
-              type="number"
-              min="0"
-              value={entry.bugs_found}
-              onChange={(e) => onChange("bugs_found", Number(e.target.value))}
-              disabled={isNoTestingAssigned(entry.application_name)}
-            />
-          </Field>
-          <Field label="Critical Bugs">
-            <Input
-              type="number"
-              min="0"
-              value={entry.critical_bugs_found}
-              onChange={(e) => onChange("critical_bugs_found", Number(e.target.value))}
-              disabled={isNoTestingAssigned(entry.application_name)}
-            />
-          </Field>
-        </div>
-
+        {/* Row 4: Testing Notes */}
         <div>
-          <Field label="Additional Notes">
+          <Field label="Testing Notes">
             <textarea
               value={entry.notes}
               onChange={(e) => onChange("notes", e.target.value)}

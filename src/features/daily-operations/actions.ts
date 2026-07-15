@@ -199,6 +199,10 @@ export async function saveMonthlyPerformanceAdjustmentAction(
 
   const payload: Record<string, unknown> = {
     ...parsed.data,
+    // @deprecated - support_adjustment kept for database trigger/legacy compatibility
+    support_adjustment: parsed.data.manager_points,
+    // @deprecated - testing_adjustment kept for database trigger/legacy compatibility
+    testing_adjustment: 0,
     updated_by: profile.id,
   };
 

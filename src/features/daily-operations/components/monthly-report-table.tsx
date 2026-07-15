@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTable, type DataTableColumn } from "@/components/data/data-table";
-import { roleLabels } from "@/lib/auth/roles";
-import { getScoreBadgeVariant, starRatingStars } from "../performance";
+import { canManageSupport, canManageTesting, roleLabels } from "@/lib/auth/roles";
+import { getScoreBadgeVariant, starRatingStars, getStarRating } from "../performance";
 import type { MonthlyPerformanceMetrics } from "../performance";
 
 type Props = {
@@ -44,25 +44,59 @@ export function MonthlyReportTable({ data, search, setSearch, sort, direction, o
   const columns: DataTableColumn<MonthlyPerformanceMetrics>[] = [
     { key: "employee", label: "Employee", render: (row) => <span className="font-medium">{row.full_name}</span> },
     { key: "role", label: "Role", render: (row) => roleLabels[row.role] },
-    { key: "supportDays", label: "Support Days", render: (row) => row.supportDays },
-    { key: "testingDays", label: "Testing Days", render: (row) => row.testingDays },
+    { key: "workingDays", label: "Working Days", render: (row) => row.workingDays ?? 0 },
+    { key: "supportDays", label: "Support Days", render: (row) => !canManageSupport(row.role) ? <span className="text-muted-foreground">-</span> : row.supportDays },
+    { key: "testingDays", label: "Testing Days", render: (row) => !canManageTesting(row.role) ? <span className="text-muted-foreground">-</span> : row.testingDays },
+    { key: "tickets", label: "Tickets", render: (row) => !canManageSupport(row.role) ? <span className="text-muted-foreground">-</span> : row.totalTickets },
+    { key: "chats", label: "Chats", render: (row) => !canManageSupport(row.role) ? <span className="text-muted-foreground">-</span> : row.totalChats },
+    { key: "testingTasks", label: "Testing Tasks", render: (row) => !canManageTesting(row.role) ? <span className="text-muted-foreground">-</span> : row.totalTestingEntries },
+    {
+      key: "testingQuality",
+      label: "Testing Quality",
+      render: (row) => !canManageTesting(row.role) ? (
+        <span className="text-muted-foreground">-</span>
+      ) : row.testingDays === 0 ? (
+        <Badge variant="outline">N/A</Badge>
+      ) : (
+        <span>{starRatingStars[getStarRating(row.testingScore).rating]}</span>
+      ),
+    },
     {
       key: "supportScore",
       label: "Support Score",
-      render: (row) => row.supportDays === 0 ? <Badge variant="outline">N/A</Badge> : <Badge variant={getScoreBadgeVariant(row.supportScore)}>{row.supportScore.toFixed(2)}</Badge>,
+      render: (row) => !canManageSupport(row.role) ? (
+        <span className="text-muted-foreground">-</span>
+      ) : row.supportDays === 0 ? (
+        <Badge variant="outline">N/A</Badge>
+      ) : (
+        <Badge variant={getScoreBadgeVariant(row.supportScore)}>{row.supportScore.toFixed(2)}</Badge>
+      ),
     },
     {
       key: "testingScore",
       label: "Testing Score",
-      render: (row) => row.testingDays === 0 ? <Badge variant="outline">N/A</Badge> : <Badge variant={getScoreBadgeVariant(row.testingScore)}>{row.testingScore.toFixed(2)}</Badge>,
+      render: (row) => !canManageTesting(row.role) ? (
+        <span className="text-muted-foreground">-</span>
+      ) : row.testingDays === 0 ? (
+        <Badge variant="outline">N/A</Badge>
+      ) : (
+        <Badge variant={getScoreBadgeVariant(row.testingScore)}>{row.testingScore.toFixed(2)}</Badge>
+      ),
     },
-    { key: "averageDailyScore", label: "Avg Daily Score", render: (row) => <Badge variant={getScoreBadgeVariant(row.averageDailyScore)}>{row.averageDailyScore.toFixed(2)}</Badge> },
+    {
+      key: "managerPoints",
+      label: "Manager Points",
+      render: (row) => {
+        const pts = row.supportAdjustment || 0;
+        return <span className={pts > 0 ? "text-emerald-600 font-semibold" : pts < 0 ? "text-destructive font-semibold" : "text-muted-foreground"}>{pts > 0 ? `+${pts}` : pts}</span>;
+      },
+    },
     {
       key: "finalScore",
-      label: "Final Score (/5)",
+      label: "Final Score",
       render: (row) => (
         <span className="font-semibold" title={row.ratingLabel}>
-          {row.finalScore.toFixed(2)} {starRatingStars[row.starRating]}
+          {row.finalScore.toFixed(2)}
         </span>
       ),
     },

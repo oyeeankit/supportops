@@ -45,31 +45,35 @@ test.describe("Monthly Performance Adjustments (BOLA & Math Validation)", () => 
     await expect(page.locator("h2:has-text('Employee Performance Details')")).toBeVisible();
 
     // 2. Locate form elements
-    const supportInput = page.locator("input#support_adjustment");
-    const testingInput = page.locator("input#testing_adjustment");
-    const remarksTextarea = page.locator("textarea#manager_remarks");
+    const supportInput = page.locator("input#support_adjustment_view");
+    const remarksTextarea = page.locator("textarea#remarks_view");
 
     // Verify fields are visible and interactive
     await expect(supportInput).toBeVisible();
-    await expect(testingInput).toBeVisible();
     await expect(remarksTextarea).toBeVisible();
 
+    // Read baseline score
+    const scoreLocator = page.locator("p:has-text('/ 5')");
+    const baselineText = await scoreLocator.first().innerText();
+    const baselineScore = parseFloat(baselineText.split("/")[0].trim());
+    console.log(`Baseline score read: ${baselineScore}`);
+
     // 3. Fill and submit adjustment data
-    console.log("Setting Support Adjustment to +10 and submitting form...");
+    console.log("Setting Overall Manager Points to +10 and submitting form...");
     await supportInput.fill("10");
-    await testingInput.fill("0");
     await remarksTextarea.fill("CI/CD Playwright E2E verification test.");
     
-    await page.click("button:has-text('Save Adjustments')");
+    await page.click("button:has-text('Save Evaluation')");
 
     // 4. Assert adjustments saved successfully
     await expect(page.locator("text=Adjustments saved successfully.")).toBeVisible();
     console.log("Recalculation confirmation alert verified.");
 
-    // 5. Assert dynamic score shifts accordingly (+0.50 points based on +10 adjustment)
-    const scoreLocator = page.locator("p:has-text('/ 5')");
-    const updatedScore = await scoreLocator.first().innerText();
-    expect(updatedScore).toContain("3.89 / 5"); // Lalit baseline is 3.39 + 0.50 modifier
+    // 5. Assert dynamic score shifts accordingly (+0.50 points based on +10 points)
+    const updatedScoreText = await scoreLocator.first().innerText();
+    const updatedScore = parseFloat(updatedScoreText.split("/")[0].trim());
+    const expectedScore = Math.min(5.00, Math.max(1.00, baselineScore + 0.50));
+    expect(updatedScore).toBeCloseTo(expectedScore, 2);
     console.log(`Recalculated score verified: ${updatedScore}`);
 
     // 6. Close profile modal and assert UI resets

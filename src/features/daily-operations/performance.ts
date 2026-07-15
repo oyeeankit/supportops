@@ -58,6 +58,7 @@ export type MonthlyPerformanceMetrics = {
   role: AppRole;
   supportDays: number;
   testingDays: number;
+  workingDays?: number;
   supportScore: number; // 1-5 average across support days
   testingScore: number; // 1-5 average across testing days
   averageDailyScore: number; // 1-5 average of daily final scores
@@ -74,6 +75,11 @@ export type MonthlyPerformanceMetrics = {
   supportAdjustment: number;
   testingAdjustment: number;
   managerRemarks: string;
+  behaviorRating: number;
+  communicationRating: number;
+  ownershipRating: number;
+  disciplineRating: number;
+  managerPoints: number;
 };
 
 export type MonthlyPerformanceSummary = {

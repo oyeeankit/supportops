@@ -24,4 +24,20 @@ test.describe("Monthly Performance Reports & Calculations", () => {
 
     expect(download.suggestedFilename()).toContain("monthly-report");
   });
+
+  test("should assert role-based score column visibility matches expected rules", async ({ page }) => {
+    // Lalit is a Support Engineer -> Support and Testing columns both display metrics (not "-")
+    const supportRow = page.locator("tr:has-text('Lalit')");
+    await expect(supportRow.locator("td").nth(3)).not.toContainText("-"); // Support Days has value
+    await expect(supportRow.locator("td").nth(4)).not.toContainText("-"); // Testing Days has value
+    await expect(supportRow.locator("td").nth(9)).not.toContainText("-"); // Support Score has badge value
+    await expect(supportRow.locator("td").nth(10)).not.toContainText("-"); // Testing Score has badge value
+
+    // Shivam is a QA Engineer -> Support columns display "-", Testing columns display metrics
+    const qaRow = page.locator("tr:has-text('Shivam')");
+    await expect(qaRow.locator("td").nth(3)).toContainText("-");    // Support Days is "-"
+    await expect(qaRow.locator("td").nth(4)).not.toContainText("-"); // Testing Days has value
+    await expect(qaRow.locator("td").nth(9)).toContainText("-");    // Support Score is "-"
+    await expect(qaRow.locator("td").nth(10)).not.toContainText("-"); // Testing Score has badge value
+  });
 });
