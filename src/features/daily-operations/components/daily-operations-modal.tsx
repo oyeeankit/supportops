@@ -23,6 +23,9 @@ import {
   testingStatusLabels,
   testingTypes,
   testingTypeLabels,
+  attendanceStatuses,
+  attendanceStatusLabels,
+  type AttendanceStatus,
   type DailySummaryStats,
   type DailySupportLog,
   type DailyTestingLog,
@@ -229,6 +232,9 @@ function ModalFormBody({
   const [state, formAction, pending] = useActionState(saveDailyOperationAction, initialState);
   const testingEntriesRef = useRef<HTMLInputElement>(null);
 
+  const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus>(
+    supportLog?.attendance_status ?? "present"
+  );
   const [ticketsHandled, setTicketsHandled] = useState(supportLog?.tickets_handled ?? 0);
   const [chatsHandled, setChatsHandled] = useState(supportLog?.chats_handled ?? 0);
   const [supportNotes, setSupportNotes] = useState(supportLog?.notes ?? "");
@@ -296,7 +302,7 @@ function ModalFormBody({
       <input type="hidden" name="employee_id" value={employeeId} />
       <input type="hidden" name="log_date" value={date} />
       <input type="hidden" name="log_type" value="daily_operations" />
-      <input type="hidden" name="attendance_status" value="present" />
+      <input type="hidden" name="attendance_status" value={attendanceStatus} />
       <input type="hidden" name="testing_entries" ref={testingEntriesRef} />
       <input type="hidden" name="stay_on_page" value="1" />
 
@@ -312,7 +318,19 @@ function ModalFormBody({
         </button>
         {supportOpen && (
           <div className="border-t border-border px-4 pb-4 pt-3">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Attendance Status" error={errorFor("attendance_status")}>
+                <Select
+                  value={attendanceStatus}
+                  onChange={(e) => setAttendanceStatus(e.target.value as AttendanceStatus)}
+                >
+                  {attendanceStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {attendanceStatusLabels[status]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               <Field label="Ticket Count" error={errorFor("tickets_handled")}>
                 <Input
                   name="tickets_handled"

@@ -43,6 +43,7 @@ export default async function ReportsPage({
         selectedMonth={selected.value}
         selectedYear={selected.year}
         selectedMonthNumber={selected.month}
+        role={profile.role}
       />
     </div>
   );

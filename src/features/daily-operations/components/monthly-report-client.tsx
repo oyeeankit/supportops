@@ -26,9 +26,10 @@ type Props = {
   selectedMonth: string;
   selectedYear: number;
   selectedMonthNumber: string;
+  role: AppRole;
 };
 
-export function MonthlyReportClient({ rows, summary, selectedMonth, selectedYear, selectedMonthNumber }: Props) {
+export function MonthlyReportClient({ rows, summary, selectedMonth, selectedYear, selectedMonthNumber, role }: Props) {
   const { startLoading } = useAppLoading();
   const [search, setSearch] = React.useState("");
   const [sort, setSort] = React.useState("finalScore");
@@ -136,12 +137,21 @@ export function MonthlyReportClient({ rows, summary, selectedMonth, selectedYear
         onSelectEmployee={(employee) => setSelectedEmployee(employee)}
       />
 
-      <EmployeeDetailModal
-        employee={selectedEmployee}
-        summary={summary}
-        open={selectedEmployee !== null}
-        onClose={() => setSelectedEmployee(null)}
-      />
+      {(() => {
+        const currentEmployee = selectedEmployee
+          ? rows.find((r) => r.employee_id === selectedEmployee.employee_id) || selectedEmployee
+          : null;
+        return (
+          <EmployeeDetailModal
+            employee={currentEmployee}
+            summary={summary}
+            open={selectedEmployee !== null}
+            onClose={() => setSelectedEmployee(null)}
+            role={role}
+            selectedMonth={selectedMonth}
+          />
+        );
+      })()}
     </div>
   );
 }

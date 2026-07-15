@@ -10,6 +10,7 @@ import {
   getExpectedWorkingDays,
   getStarRating,
   round,
+  clamp,
   type MonthlyPerformanceMetrics,
   type MonthlyPerformanceSummary,
 } from "./performance";
@@ -307,8 +308,25 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
     const avgDaily = dailyFinalScores.length > 0
       ? round(dailyFinalScores.reduce((a, b) => a + b, 0) / dailyFinalScores.length, 2) : 0;
 
-    // Monthly final = average of daily final scores
-    const finalScore = avgDaily;
+    // Find manager monthly adjustments
+    const adj = adjustments.find((a) => a.employee_id === emp.id);
+    const supportAdjustment = adj?.support_adjustment ?? 0;
+    const testingAdjustment = adj?.testing_adjustment ?? 0;
+    const managerRemarks = adj?.manager_remarks ?? "";
+
+    const hasSupport = dailySupportScores.length > 0;
+    const hasTesting = dailyTestingScores.length > 0;
+    let adjustmentEffect = 0;
+
+    if (hasSupport && hasTesting) {
+      adjustmentEffect = (supportAdjustment + testingAdjustment) / 40.0;
+    } else if (hasSupport) {
+      adjustmentEffect = supportAdjustment / 20.0;
+    } else if (hasTesting) {
+      adjustmentEffect = testingAdjustment / 20.0;
+    }
+
+    const finalScore = clamp(round(avgDaily + adjustmentEffect, 2), 1.0, 5.0);
     const { rating, label } = getStarRating(finalScore);
 
     const appsTested = new Set(empTestingLogs.map((l) => l.application_name).filter((n) => n && n !== "No Testing Assigned"));
@@ -331,7 +349,9 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
       appsTested: appsTested.size,
       bugsFound: empTestingLogs.reduce((s, l) => s + l.bugs_found, 0),
       criticalBugsFound: empTestingLogs.reduce((s, l) => s + l.critical_bugs_found, 0),
-      managerRemarks: "",
+      supportAdjustment,
+      testingAdjustment,
+      managerRemarks,
     };
   });
 

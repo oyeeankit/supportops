@@ -71,6 +71,8 @@ export type MonthlyPerformanceMetrics = {
   appsTested: number;
   bugsFound: number;
   criticalBugsFound: number;
+  supportAdjustment: number;
+  testingAdjustment: number;
   managerRemarks: string;
 };
 
