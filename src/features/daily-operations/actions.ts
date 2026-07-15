@@ -88,10 +88,12 @@ export async function saveDailyOperationAction(
     validatedEntries.push({ ...parsed.data });
   }
 
-  // Validate end >= start for each entry
+  // Validate end >= start for each entry when both dates are provided and not empty
   for (let i = 0; i < validatedEntries.length; i++) {
     const entry = validatedEntries[i];
-    if (entry.started_at && entry.ended_at && String(entry.ended_at) < String(entry.started_at)) {
+    const start = typeof entry.started_at === "string" ? entry.started_at.trim() : "";
+    const end = typeof entry.ended_at === "string" ? entry.ended_at.trim() : "";
+    if (start && end && end < start) {
       return { message: `Entry #${i + 1}: End time cannot be before start time.` };
     }
   }
