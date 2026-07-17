@@ -3,11 +3,24 @@ import { MobileNav } from "@/components/app-shell/mobile-nav";
 import { Sidebar } from "@/components/app-shell/sidebar";
 import { AppLoadingProvider } from "@/components/feedback/app-loading";
 import { requireUser } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/server";
+import { DailyLogReminder } from "@/features/daily-operations/components/daily-log-reminder";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { profile } = await requireUser();
+
+  const today = new Date().toISOString().slice(0, 10);
+  const supabase = await createClient();
+  const { data: log } = await supabase
+    .from("daily_support_logs")
+    .select("id")
+    .eq("employee_id", profile.id)
+    .eq("log_date", today)
+    .maybeSingle();
+
+  const hasLoggedToday = !!log;
 
   return (
     <AppLoadingProvider>
@@ -20,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </div>
         <MobileNav />
+        <DailyLogReminder hasLogged={hasLoggedToday} />
       </div>
     </AppLoadingProvider>
   );

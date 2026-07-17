@@ -149,32 +149,32 @@ export function EmployeeDetailModal({ employee, summary, open, onClose, role, se
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/45 backdrop-blur-md p-4 sm:p-6"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="my-4 w-full max-w-[90vw] rounded-lg bg-background shadow-xl">
+      <div className="my-4 w-full max-w-[90vw] md:max-w-4xl rounded-2xl bg-card border border-border/80 shadow-2xl overflow-hidden transition-all duration-300 transform scale-100">
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-border px-6 py-4">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold">Employee Performance Details</h2>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{employee.full_name}</span>
-              <span>{roleLabels[employee.role]}</span>
-              <span>{summary?.monthLabel ?? ""}</span>
+        <div className="flex items-start justify-between border-b border-border/60 px-6 py-5 bg-slate-50/50 dark:bg-slate-900/30 rounded-t-2xl">
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-bold tracking-tight text-foreground bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-indigo-400">Employee Performance Details</h2>
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">{employee.full_name}</span>
+              <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">{roleLabels[employee.role]}</span>
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{summary?.monthLabel ?? ""}</span>
             </div>
           </div>
           <div className="flex items-start gap-4">
-            <div className="text-right">
-              <p className="text-2xl font-bold">{employee.finalScore.toFixed(2)} / 5</p>
-              <p className="text-lg">{starRatingStars[employee.starRating]}</p>
-              <p className="text-sm text-muted-foreground">{employee.ratingLabel}</p>
+            <div className="text-right bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100/30 px-3.5 py-1.5 rounded-xl shadow-sm">
+              <p className="text-2xl font-extrabold text-blue-600 dark:text-blue-400">{employee.finalScore.toFixed(2)} <span className="text-xs text-muted-foreground font-normal">/ 5</span></p>
+              <p className="text-sm font-semibold tracking-wide text-yellow-500 mt-0.5">{starRatingStars[employee.starRating]}</p>
+              <p className="text-xs text-muted-foreground font-medium">{employee.ratingLabel}</p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="rounded-full p-2 text-muted-foreground hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-foreground transition-all duration-300 hover:rotate-90"
             >
               <X className="h-5 w-5" />
             </button>
@@ -186,9 +186,12 @@ export function EmployeeDetailModal({ employee, summary, open, onClose, role, se
           <EmployeeDetailPanel employee={employee} />
 
           {role === "manager" && (
-            <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="text-lg font-semibold mb-4 text-foreground">Manager Monthly Evaluation</h3>
-              <form action={formAction} className="space-y-4">
+            <div className="rounded-2xl border border-border/70 overflow-hidden shadow-sm bg-card p-6">
+              <h3 className="text-lg font-bold mb-5 text-foreground border-b border-border/50 pb-3 flex items-center gap-2">
+                <span className="inline-block w-1.5 h-6 bg-blue-600 dark:bg-blue-500 rounded-full" />
+                Manager Monthly Evaluation
+              </h3>
+              <form action={formAction} className="space-y-5">
                 <input type="hidden" name="employee_id" value={employee.employee_id} />
                 <input type="hidden" name="report_month" value={`${selectedMonth}-01`} />
                 <input type="hidden" name="behavior_rating" value={behaviour} />
@@ -202,28 +205,28 @@ export function EmployeeDetailModal({ employee, summary, open, onClose, role, se
                 <input type="hidden" name="testing_adjustment" value="0" />
 
                 {/* Star Ratings Grid */}
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-5 md:grid-cols-2 p-5 bg-slate-50/40 dark:bg-slate-900/10 border border-border/60 rounded-2xl shadow-inner">
                   <div className="space-y-2">
-                    <Label>Team Behaviour Rating</Label>
+                    <Label className="text-sm font-semibold text-foreground">Team Behaviour Rating</Label>
                     <RatingStars value={behaviour} onChange={setBehaviour} disabled={pending} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Communication Rating</Label>
+                    <Label className="text-sm font-semibold text-foreground">Communication Rating</Label>
                     <RatingStars value={communication} onChange={setCommunication} disabled={pending} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Ownership Rating</Label>
+                    <Label className="text-sm font-semibold text-foreground">Ownership Rating</Label>
                     <RatingStars value={ownership} onChange={setOwnership} disabled={pending} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Discipline Rating</Label>
+                    <Label className="text-sm font-semibold text-foreground">Discipline Rating</Label>
                     <RatingStars value={discipline} onChange={setDiscipline} disabled={pending} />
                   </div>
                 </div>
 
                 {/* Manager Points input */}
                 <div className="space-y-2">
-                  <Label htmlFor="support_adjustment_view">Overall Manager Points (-10 to +10)</Label>
+                  <Label htmlFor="support_adjustment_view" className="text-sm font-semibold text-foreground">Overall Manager Points (-10 to +10)</Label>
                   <Input
                     id="support_adjustment_view"
                     type="number"
@@ -232,32 +235,34 @@ export function EmployeeDetailModal({ employee, summary, open, onClose, role, se
                     value={managerPoints}
                     onChange={(e) => setManagerPoints(Number(e.target.value))}
                     disabled={pending}
+                    className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground font-medium">
                     Award reward points or deduct penalty points based on overall monthly behavior.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="remarks_view">Manager Remarks / Feedback Notes</Label>
+                  <Label htmlFor="remarks_view" className="text-sm font-semibold text-foreground">Manager Remarks / Feedback Notes</Label>
                   <textarea
                     id="remarks_view"
+                    name="manager_remarks"
                     value={remarks}
                     onChange={(e) => setRemarks(e.target.value)}
                     placeholder="Enter performance feedback notes for this month..."
-                    className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    className="min-h-20 w-full rounded-xl border border-border/80 bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all duration-200 resize-y"
                     disabled={pending}
                   />
                 </div>
 
                 {successMessage ? (
-                  <p className="text-sm text-emerald-600 font-medium">{successMessage}</p>
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">{successMessage}</p>
                 ) : state.message ? (
                   <p className="text-sm text-destructive font-medium">{state.message}</p>
                 ) : null}
 
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={pending}>
+                <div className="flex justify-end pt-2">
+                  <Button type="submit" disabled={pending} className="rounded-xl px-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium hover:-translate-y-0.5 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:translate-y-0 active:shadow-md transition-all duration-200 disabled:opacity-50">
                     {pending ? "Saving..." : "Save Evaluation"}
                   </Button>
                 </div>
@@ -267,11 +272,11 @@ export function EmployeeDetailModal({ employee, summary, open, onClose, role, se
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
-          <Button type="button" variant="outline" disabled>
+        <div className="flex items-center justify-end gap-3 border-t border-border/60 px-6 py-4.5 bg-slate-50/20 dark:bg-slate-900/10">
+          <Button type="button" variant="outline" disabled className="rounded-xl px-4">
             Export PDF
           </Button>
-          <Button type="button" onClick={onClose}>
+          <Button type="button" onClick={onClose} className="rounded-xl px-4 hover:bg-slate-100">
             Close
           </Button>
         </div>

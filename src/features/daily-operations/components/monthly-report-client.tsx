@@ -125,7 +125,7 @@ export function MonthlyReportClient({ rows, summary, selectedMonth, selectedYear
         </div>
       </div>
 
-      <MonthlyReportSummary summary={summary} />
+      <MonthlyReportSummary summary={summary} rows={rows} />
 
       <MonthlyReportTable
         data={rows}

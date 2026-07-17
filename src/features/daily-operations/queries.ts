@@ -353,12 +353,58 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
     const supportEnabled = canManageSupport(role as AppRole);
     const testingEnabled = canManageTesting(role as AppRole);
 
+    const supportDaysFiltered = empSupportLogs.filter((l) => l.attendance_status !== "leave");
+
+    let workingDaysCount = 0;
+    for (const date of allDates) {
+      const sl = supportByDate.get(date);
+      if (sl) {
+        if (sl.attendance_status === "leave") {
+          continue;
+        }
+        const isHalfDay =
+          sl.notes?.toLowerCase().includes("half day") ||
+          sl.notes?.toLowerCase().includes("half-day") ||
+          sl.notes?.toLowerCase().includes("half_day") ||
+          sl.daily_remarks?.toLowerCase().includes("half day") ||
+          sl.daily_remarks?.toLowerCase().includes("half-day") ||
+          sl.daily_remarks?.toLowerCase().includes("half_day");
+
+        if (isHalfDay) {
+          workingDaysCount += 0.5;
+        } else {
+          workingDaysCount += 1.0;
+        }
+      } else {
+        if (testingByDate.has(date)) {
+          workingDaysCount += 1.0;
+        }
+      }
+    }
+
+    let supportDaysCount = 0;
+    for (const log of supportDaysFiltered) {
+      const isHalfDay =
+        log.notes?.toLowerCase().includes("half day") ||
+        log.notes?.toLowerCase().includes("half-day") ||
+        log.notes?.toLowerCase().includes("half_day") ||
+        log.daily_remarks?.toLowerCase().includes("half day") ||
+        log.daily_remarks?.toLowerCase().includes("half-day") ||
+        log.daily_remarks?.toLowerCase().includes("half_day");
+
+      if (isHalfDay) {
+        supportDaysCount += 0.5;
+      } else {
+        supportDaysCount += 1.0;
+      }
+    }
+
     return {
       employee_id: emp.id,
       full_name: emp.full_name,
       role: role as AppRole,
-      workingDays: allDates.size,
-      supportDays: supportEnabled ? empSupportLogs.filter((l) => l.attendance_status !== "leave").length : 0,
+      workingDays: workingDaysCount,
+      supportDays: supportEnabled ? supportDaysCount : 0,
       testingDays: testingEnabled ? new Set(empTestingLogs.filter((l) => l.application_name && l.application_name !== "No Testing Assigned").map((l) => l.log_date)).size : 0,
       supportScore: supportEnabled ? avgSupport : 0,
       testingScore: testingEnabled ? avgTesting : 0,
@@ -570,4 +616,99 @@ export async function getDailyOperationsDashboardData(profile: UserProfile, rang
   });
 
   return { range, rangeLabel: label, startDate, endDate, rows, error: null };
+}
+
+export type TeamMemberMonthlyLogsRow = {
+  employee_id: string;
+  full_name: string;
+  email: string;
+  role: AppRole;
+  shift: Shift;
+  avatar_url: string | null;
+  supportLogs: DailySupportLog[];
+  testingLogs: DailyTestingLog[];
+};
+
+export async function getDailyOperationsMonthData(
+  profile: UserProfile,
+  month = new Date().toISOString().slice(0, 7),
+) {
+  const reportMonth = parseReportMonth(month);
+  if (!isSupabaseConfigured()) {
+    return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: "Supabase is not configured." };
+  }
+
+  const supabase = await createClient();
+  const isManager = profile.role === "manager";
+
+  const profileQuery = supabase
+    .from("profiles")
+    .select("id, full_name, email, shift, avatar_url, roles(name)")
+    .eq("employment_status", "active")
+    .order("full_name");
+
+  const { data: profiles, error: profilesError } = isManager
+    ? await profileQuery.neq("id", profile.id)
+    : await profileQuery.eq("id", profile.id);
+
+  if (profilesError) {
+    return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: profilesError.message };
+  }
+
+  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((e) => e.id);
+  let supportLogs: DailySupportLog[] = [];
+  let testingLogs: DailyTestingLog[] = [];
+
+  if (employeeIds.length > 0) {
+    const [sr, tr] = await Promise.all([
+      supabase
+        .from("daily_support_logs")
+        .select("*")
+        .gte("log_date", reportMonth.startDate)
+        .lte("log_date", reportMonth.endDate)
+        .in("employee_id", employeeIds),
+      supabase
+        .from("daily_testing_logs")
+        .select("*")
+        .gte("log_date", reportMonth.startDate)
+        .lte("log_date", reportMonth.endDate)
+        .in("employee_id", employeeIds),
+    ]);
+
+    if (sr.error && isSchemaCacheError(sr.error)) {
+      const legacy = await fetchLegacyOperations(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds);
+      if (legacy.error) return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: legacy.error.message };
+      supportLogs = legacy.data.map(toSupportLog);
+    } else if (sr.error) {
+      return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: sr.error.message };
+    } else {
+      supportLogs = (sr.data ?? []) as DailySupportLog[];
+    }
+
+    if (tr.error && isSchemaCacheError(tr.error)) {
+      const legacy = await fetchLegacyOperations(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds);
+      if (legacy.error) return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: legacy.error.message };
+      testingLogs = legacy.data.flatMap(toTestingLogs);
+    } else if (tr.error) {
+      return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: tr.error.message };
+    } else {
+      testingLogs = (tr.data ?? []) as DailyTestingLog[];
+    }
+  }
+
+  const rows = ((profiles ?? []) as unknown as ProfileRow[]).map((emp) => {
+    const role = Array.isArray(emp.roles) ? emp.roles[0]?.name : emp.roles?.name ?? "support_engineer";
+    return {
+      employee_id: emp.id,
+      full_name: emp.full_name,
+      email: emp.email,
+      role: role as AppRole,
+      shift: emp.shift,
+      avatar_url: emp.avatar_url,
+      supportLogs: supportLogs.filter((l) => l.employee_id === emp.id),
+      testingLogs: testingLogs.filter((l) => l.employee_id === emp.id),
+    };
+  });
+
+  return { month: reportMonth.month, monthLabel: reportMonth.monthLabel, rows, error: null };
 }

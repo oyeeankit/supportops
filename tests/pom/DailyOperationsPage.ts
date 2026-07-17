@@ -1,7 +1,7 @@
 import { type Page } from "@playwright/test";
 
 export class DailyOperationsPage {
-  readonly modalHeading = this.page.locator("h2:has-text('Daily Support Log')");
+  readonly modalHeading = this.page.locator("h2:has-text('Daily Operations'), h2:has-text('Edit Daily Operations')");
   readonly attendanceSelect = this.page.locator("select[value]");
   readonly ticketsInput = this.page.locator("input[name='tickets_handled']");
   readonly chatsInput = this.page.locator("input[name='chats_handled']");

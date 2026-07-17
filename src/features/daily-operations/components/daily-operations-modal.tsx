@@ -33,6 +33,7 @@ import {
   type TestingEntryFormData,
   type TestingPlatform,
   emptyTestingEntry,
+  type TestingQuality,
 } from "../types";
 import {
   saveDailyOperationAction,
@@ -158,45 +159,46 @@ export function DailyOperationsModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-6">
-      <div className="my-4 w-full max-w-4xl rounded-lg bg-background shadow-lg">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/45 backdrop-blur-md p-4 sm:p-6 transition-all duration-300">
+      <div className="my-4 w-full max-w-4xl rounded-2xl bg-card border border-border/80 shadow-2xl transition-all duration-300 transform scale-100 overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-border px-6 py-4">
+        <div className="flex items-start justify-between border-b border-border/60 px-6 py-5 bg-slate-50/50 dark:bg-slate-900/30 rounded-t-2xl">
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-xl font-bold tracking-tight text-foreground bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-indigo-400">
               {isEdit ? "Edit Daily Operations" : "Daily Operations"}
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Employee: <span className="font-medium text-foreground">{employeeName}</span>
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
+              Employee: <span className="font-semibold text-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">{employeeName}</span>
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="rounded-full p-2 text-muted-foreground hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-foreground transition-all duration-300 hover:rotate-90"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Date picker */}
-        <div className="border-b border-border px-6 py-4">
+        <div className="border-b border-border/60 px-6 py-4.5 bg-card">
           <div className="flex items-end gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="modal-date">Log Date {isEdit && <span className="text-muted-foreground">: {formattedDate}</span>}</Label>
+            <div className="space-y-2 w-full sm:max-w-xs">
+              <Label htmlFor="modal-date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Log Date {isEdit && <span className="text-foreground font-medium">: {formattedDate}</span>}</Label>
               <Input
                 id="modal-date"
                 type="date"
                 value={selectedDate}
                 max={today}
                 onChange={(e) => handleDateChange(e.target.value)}
+                className="w-full rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
               />
             </div>
           </div>
         </div>
 
         {/* Form body */}
-        <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+        <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -315,22 +317,23 @@ function ModalFormBody({
 
       {/* Support Summary */}
       {showSupport && (
-        <div className="rounded-lg border border-border">
+        <div className="rounded-2xl border border-border/70 overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md bg-card">
           <button
             type="button"
             onClick={() => setSupportOpen(!supportOpen)}
-            className="flex w-full items-center justify-between px-4 py-3 text-lg font-semibold leading-none tracking-tight"
+            className="flex w-full items-center justify-between px-5 py-4 text-base font-bold tracking-tight text-foreground bg-slate-50/50 dark:bg-slate-900/30 border-l-4 border-l-blue-600 dark:border-l-blue-500 hover:bg-slate-100/50 dark:hover:bg-slate-800/30 transition-all duration-300"
           >
             <span>Support Summary</span>
-            {supportOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform duration-300", !supportOpen && "-rotate-90")} />
           </button>
           {supportOpen && (
-            <div className="border-t border-border px-4 pb-4 pt-3">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="border-t border-border/50 px-5 pb-5 pt-4">
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 <Field label="Attendance Status" error={errorFor("attendance_status")}>
                   <Select
                     value={attendanceStatus}
                     onChange={(e) => setAttendanceStatus(e.target.value as AttendanceStatus)}
+                    className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
                   >
                     {attendanceStatuses.map((status) => (
                       <option key={status} value={status}>
@@ -346,6 +349,7 @@ function ModalFormBody({
                     min="0"
                     value={ticketsHandled}
                     onChange={(e) => setTicketsHandled(Number(e.target.value))}
+                    className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
                   />
                 </Field>
                 <Field label="Chat Count" error={errorFor("chats_handled")}>
@@ -355,6 +359,7 @@ function ModalFormBody({
                     min="0"
                     value={chatsHandled}
                     onChange={(e) => setChatsHandled(Number(e.target.value))}
+                    className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
                   />
                 </Field>
                 <Field label="Support Notes" error={errorFor("notes")}>
@@ -363,7 +368,7 @@ function ModalFormBody({
                     value={supportNotes}
                     onChange={(e) => setSupportNotes(e.target.value)}
                     placeholder="Optional support context"
-                    className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="min-h-20 w-full rounded-xl border border-border/80 bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all duration-200 resize-y"
                   />
                 </Field>
               </div>
@@ -374,24 +379,24 @@ function ModalFormBody({
 
       {/* Testing Activities */}
       {showTesting && (
-        <div className="rounded-lg border border-border">
+        <div className="rounded-2xl border border-border/70 overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md bg-card">
           <button
             type="button"
             onClick={() => setTestingOpen(!testingOpen)}
-            className="flex w-full items-center justify-between px-4 py-3 text-lg font-semibold leading-none tracking-tight"
+            className="flex w-full items-center justify-between px-5 py-4 text-base font-bold tracking-tight text-foreground bg-slate-50/50 dark:bg-slate-900/30 border-l-4 border-l-violet-600 dark:border-l-violet-500 hover:bg-slate-100/50 dark:hover:bg-slate-800/30 transition-all duration-300"
           >
             <span>Testing Activities</span>
-            {testingOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform duration-300", !testingOpen && "-rotate-90")} />
           </button>
           {testingOpen && (
-            <div className="border-t border-border px-4 pb-4 pt-3">
+            <div className="border-t border-border/50 px-5 pb-5 pt-4">
               <div className="space-y-4">
-                <Button type="button" variant="outline" size="sm" onClick={addTestingEntry} disabled={pending}>
-                  <Plus className="mr-1 h-4 w-4" /> Add Testing
+                <Button type="button" variant="outline" size="sm" onClick={addTestingEntry} disabled={pending} className="rounded-xl border-dashed border-2 hover:border-violet-400">
+                  <Plus className="mr-1 h-4 w-4" /> Add Testing Activity
                 </Button>
 
                 {testingEntries.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No testing entries. Click &quot;Add Testing&quot; to add one.</p>
+                  <p className="text-sm text-muted-foreground">No testing entries. Click &quot;Add Testing Activity&quot; to add one.</p>
                 ) : (
                   <div className="space-y-4">
                     {testingEntries.map((entry, index) => (
@@ -412,8 +417,8 @@ function ModalFormBody({
                   </div>
                 )}
 
-                <Button type="button" variant="outline" size="sm" onClick={addTestingEntry} disabled={pending}>
-                  <Plus className="mr-1 h-4 w-4" /> Add Testing
+                <Button type="button" variant="outline" size="sm" onClick={addTestingEntry} disabled={pending} className="rounded-xl border-dashed border-2 hover:border-violet-400">
+                  <Plus className="mr-1 h-4 w-4" /> Add Testing Activity
                 </Button>
               </div>
             </div>
@@ -422,22 +427,22 @@ function ModalFormBody({
       )}
 
       {/* Daily Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Daily Summary</CardTitle>
+      <Card className="rounded-2xl border border-border/60 overflow-hidden shadow-sm">
+        <CardHeader className="bg-slate-50/40 dark:bg-slate-900/10 px-5 py-4 border-b border-border/50">
+          <CardTitle className="text-base font-bold tracking-tight">Daily Summary</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {showSupport && <StatCard label="Total Tickets" value={summary.totalTickets} />}
-            {showSupport && <StatCard label="Total Chats" value={summary.totalChats} />}
-            {showTesting && <StatCard label="Apps Tested" value={summary.totalAppsTested} />}
-            {showTesting && <StatCard label="Testing Entries" value={summary.totalTestingEntries} />}
-            {showTesting && <StatCard label="Total Bugs" value={summary.totalBugs} />}
-            {showTesting && <StatCard label="Critical Bugs" value={summary.criticalBugs} />}
-            {showTesting && <StatCard label="Completed" value={summary.completedTests} />}
-            {showTesting && <StatCard label="In Progress" value={summary.inProgressTests} />}
-            {showTesting && <StatCard label="Blocked" value={summary.blockedTests} />}
-            {showTesting && <StatCard label="On Hold" value={summary.onHoldTests} />}
+        <CardContent className="p-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {showSupport && <StatCard label="Total Tickets" value={summary.totalTickets} colorClass="text-blue-600 dark:text-blue-400" />}
+            {showSupport && <StatCard label="Total Chats" value={summary.totalChats} colorClass="text-blue-600 dark:text-blue-400" />}
+            {showTesting && <StatCard label="Apps Tested" value={summary.totalAppsTested} colorClass="text-violet-600 dark:text-violet-400" />}
+            {showTesting && <StatCard label="Testing Entries" value={summary.totalTestingEntries} colorClass="text-violet-600 dark:text-violet-400" />}
+            {showTesting && <StatCard label="Total Bugs" value={summary.totalBugs} colorClass="text-amber-500" />}
+            {showTesting && <StatCard label="Critical Bugs" value={summary.criticalBugs} colorClass="text-red-500" />}
+            {showTesting && <StatCard label="Completed" value={summary.completedTests} colorClass="text-emerald-500" />}
+            {showTesting && <StatCard label="In Progress" value={summary.inProgressTests} colorClass="text-blue-500" />}
+            {showTesting && <StatCard label="Blocked" value={summary.blockedTests} colorClass="text-rose-500" />}
+            {showTesting && <StatCard label="On Hold" value={summary.onHoldTests} colorClass="text-slate-500" />}
           </div>
         </CardContent>
       </Card>
@@ -445,11 +450,11 @@ function ModalFormBody({
       {/* Error / Success messages */}
       {state.message ? (
         state.saved ? (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
             {state.message}
           </div>
         ) : (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {state.message}
           </div>
         )
@@ -457,10 +462,10 @@ function ModalFormBody({
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
-        <Button type="button" variant="outline" onClick={onSaved} disabled={pending}>
+        <Button type="button" variant="outline" onClick={onSaved} disabled={pending} className="rounded-xl px-5 hover:bg-slate-100">
           Cancel
         </Button>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} className="rounded-xl px-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium hover:-translate-y-0.5 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:translate-y-0 active:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
           {pending ? "Saving..." : "Save Daily Operations"}
         </Button>
       </div>
@@ -483,10 +488,9 @@ const testingModulesList = [
 
 const qualityLevels: { value: TestingQuality; stars: number; label: string }[] = [
   { value: "poor", stars: 1, label: "Poor" },
-  { value: "fair", stars: 2, label: "Fair" },
+  { value: "average", stars: 2, label: "Average" },
   { value: "good", stars: 3, label: "Good" },
   { value: "excellent", stars: 4, label: "Excellent" },
-  { value: "outstanding", stars: 5, label: "Outstanding" },
 ];
 
 function StarRating({
@@ -503,7 +507,7 @@ function StarRating({
 
   return (
     <div className="flex items-center gap-1.5">
-      {[1, 2, 3, 4, 5].map((star) => (
+      {[1, 2, 3, 4].map((star) => (
         <button
           key={star}
           type="button"
@@ -557,31 +561,36 @@ function TestingEntryCard({
   const entryLabel = `Testing #${index + 1}`;
 
   return (
-    <Card>
-      <div className="flex flex-row items-center justify-between space-y-0 border-b p-4 pb-3">
-        <span className="text-base font-semibold">{entryLabel}</span>
-        <div className="flex items-center gap-1">
+    <Card className="rounded-2xl border border-border/70 overflow-hidden shadow-sm bg-slate-50/20 dark:bg-slate-900/10">
+      <div className="flex flex-row items-center justify-between space-y-0 border-b border-border/50 bg-slate-50/60 dark:bg-slate-900/40 px-5 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-950/60 text-xs font-bold text-violet-700 dark:text-violet-300 border border-violet-200/50 dark:border-violet-800/40">
+            {index + 1}
+          </span>
+          <span className="text-sm font-bold tracking-tight text-foreground">Testing Activity</span>
+        </div>
+        <div className="flex items-center gap-1 bg-card border border-border/50 p-1 rounded-lg shadow-sm">
           {canMoveUp ? (
-            <Button type="button" variant="ghost" size="sm" onClick={onMoveUp}>
+            <Button type="button" variant="ghost" size="sm" onClick={onMoveUp} className="h-7 w-7 p-0 rounded-md hover:bg-slate-100 hover:text-foreground">
               <ArrowUp className="h-4 w-4" />
             </Button>
           ) : null}
           {canMoveDown ? (
-            <Button type="button" variant="ghost" size="sm" onClick={onMoveDown}>
+            <Button type="button" variant="ghost" size="sm" onClick={onMoveDown} className="h-7 w-7 p-0 rounded-md hover:bg-slate-100 hover:text-foreground">
               <ArrowDown className="h-4 w-4" />
             </Button>
           ) : null}
-          <Button type="button" variant="ghost" size="sm" onClick={onDuplicate}>
+          <Button type="button" variant="ghost" size="sm" onClick={onDuplicate} className="h-7 w-7 p-0 rounded-md hover:bg-slate-100 hover:text-foreground">
             <Copy className="h-4 w-4" />
           </Button>
           {canRemove ? (
-            <Button type="button" variant="ghost" size="sm" onClick={onRemove} className="text-destructive hover:text-destructive">
+            <Button type="button" variant="ghost" size="sm" onClick={onRemove} className="h-7 w-7 p-0 rounded-md text-destructive hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30">
               <Minus className="h-4 w-4" />
             </Button>
           ) : null}
         </div>
       </div>
-      <CardContent className="space-y-4 pt-4">
+      <CardContent className="space-y-4 pt-4 px-5 pb-5">
         {/* Row 1: App and Module */}
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Testing App">
@@ -617,6 +626,7 @@ function TestingEntryCard({
               value={entry.module_name}
               onChange={(e) => onChange("module_name", e.target.value)}
               disabled={isNoTestingAssigned(entry.application_name)}
+              className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
             >
               <option value="">Select module...</option>
               {testingModulesList.map((mod) => (
@@ -637,6 +647,7 @@ function TestingEntryCard({
               value={entry.bugs_found}
               onChange={(e) => onChange("bugs_found", Number(e.target.value))}
               disabled={isNoTestingAssigned(entry.application_name)}
+              className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
             />
           </Field>
           <Field label="Testing Quality">
@@ -658,6 +669,7 @@ function TestingEntryCard({
               value={entry.started_at}
               onChange={(e) => onChange("started_at", e.target.value)}
               disabled={isNoTestingAssigned(entry.application_name)}
+              className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
             />
           </Field>
           <Field label="Testing Ended">
@@ -666,6 +678,7 @@ function TestingEntryCard({
               value={entry.ended_at}
               onChange={(e) => onChange("ended_at", e.target.value)}
               disabled={isNoTestingAssigned(entry.application_name)}
+              className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
             />
           </Field>
         </div>
@@ -677,7 +690,7 @@ function TestingEntryCard({
               value={entry.notes}
               onChange={(e) => onChange("notes", e.target.value)}
               placeholder="Optional notes for this testing entry"
-              className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="min-h-20 w-full rounded-xl border border-border/80 bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all duration-200 resize-y"
             />
           </Field>
         </div>
@@ -686,11 +699,11 @@ function TestingEntryCard({
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({ label, value, colorClass }: { label: string; value: number; colorClass?: string }) {
   return (
-    <div className="rounded-md border bg-background p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
+    <div className="rounded-xl border border-border bg-slate-50/40 dark:bg-slate-900/10 p-3 transition-all duration-300 hover:shadow-md hover:bg-card">
+      <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">{label}</p>
+      <p className={cn("text-2xl font-extrabold tracking-tight mt-1", colorClass || "text-foreground")}>{value}</p>
     </div>
   );
 }
