@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAppLoading } from "@/components/feedback/app-loading";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { roleLabels } from "@/lib/auth/roles";
+import { roleLabels, type AppRole } from "@/lib/auth/roles";
 import type { MonthlyPerformanceMetrics, MonthlyPerformanceSummary } from "../performance";
 import { EmployeeDetailModal } from "./employee-detail-modal";
 import { MonthlyReportSummary } from "./monthly-report-summary";
@@ -59,7 +59,7 @@ export function MonthlyReportClient({ rows, summary, selectedMonth, selectedYear
       "Critical Bugs",
       "Support Score (/5)",
       "Testing Score (/5)",
-      "Avg Daily Score (/5)",
+      "Manager Score (/5)",
       "Final Score (/5)",
       "Performance Rating",
     ];
@@ -76,7 +76,7 @@ export function MonthlyReportClient({ rows, summary, selectedMonth, selectedYear
       row.criticalBugsFound,
       row.supportDays === 0 ? "N/A" : row.supportScore.toFixed(2),
       row.testingDays === 0 ? "N/A" : row.testingScore.toFixed(2),
-      row.averageDailyScore.toFixed(2),
+      row.managerScore.toFixed(2),
       row.finalScore.toFixed(2),
       row.ratingLabel,
     ]);

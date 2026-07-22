@@ -10,7 +10,7 @@ test.describe("Authentication Flows", () => {
     await loginPage.login("", "");
     // Perform explicit validation check on input validation messages
     const validationMessage = await loginPage.emailInput.evaluate((el: HTMLInputElement) => el.validationMessage);
-    expect(validationMessage).not.toBeEmpty();
+    expect(validationMessage).not.toBe("");
   });
 
   test("should reject login for invalid credentials", async ({ loginPage }) => {

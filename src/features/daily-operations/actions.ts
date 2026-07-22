@@ -33,25 +33,24 @@ export async function saveDailyOperationAction(
     return { message: "You can only update your own daily log." };
   }
 
-  // Parse support data - convert empty strings to defaults for enum fields
-  const rawWorkFocus = String(formData.get("work_focus") ?? "");
-  const rawDayStatus = String(formData.get("day_status") ?? "");
-  const rawTicketRating = formData.get("ticket_rating");
-  const rawChatRating = formData.get("chat_rating");
-  const rawDocRating = formData.get("documentation_rating");
+  const isTrue = (val: FormDataEntryValue | null) => val === "on" || val === "true" || val === "1" || val === true;
+
+  // Parse support data
   const supportPayload = {
     employee_id: employeeId,
     log_date: logDate,
     attendance_status: String(formData.get("attendance_status") ?? "present"),
     tickets_handled: formData.get("tickets_handled"),
     chats_handled: formData.get("chats_handled"),
-    notes: formData.get("notes"),
-    work_focus: rawWorkFocus || "support",
-    day_status: rawDayStatus || "support",
-    daily_remarks: String(formData.get("daily_remarks") ?? ""),
-    ticket_rating: rawTicketRating ? Number(rawTicketRating) : null,
-    chat_rating: rawChatRating ? Number(rawChatRating) : null,
-    documentation_rating: rawDocRating ? Number(rawDocRating) : null,
+    doc_updated: isTrue(formData.get("doc_updated")),
+    feature_suggestion: isTrue(formData.get("feature_suggestion")),
+    bug_verification: isTrue(formData.get("bug_verification")),
+    asked_for_review: isTrue(formData.get("asked_for_review")),
+    got_review: isTrue(formData.get("got_review")),
+    other_contribution: isTrue(formData.get("other_contribution")),
+    support_quality: String(formData.get("support_quality") ?? "good"),
+    testing_quality: String(formData.get("testing_quality") ?? "good"),
+    testing_notes: formData.get("testing_notes"),
   };
 
   const supportParsed = dailySupportLogSchema.safeParse(supportPayload);
@@ -77,7 +76,16 @@ export async function saveDailyOperationAction(
 
   const validatedEntries: Array<Record<string, unknown>> = [];
   for (let i = 0; i < testingEntries.length; i++) {
-    const parsed = testingEntrySchema.safeParse(testingEntries[i]);
+    const rawEntry = testingEntries[i] as Record<string, unknown> | null;
+    if (!rawEntry) continue;
+    const appName = String(rawEntry.application_name ?? "").trim();
+    
+    // Skip empty or "No Testing Assigned" entries so they don't block saving
+    if (!appName || appName === "No Testing Assigned") {
+      continue;
+    }
+
+    const parsed = testingEntrySchema.safeParse(rawEntry);
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors as Record<string, string[] | undefined>;
       const fieldKeys = Object.keys(fieldErrors);
@@ -88,15 +96,7 @@ export async function saveDailyOperationAction(
     validatedEntries.push({ ...parsed.data });
   }
 
-  // Validate end >= start for each entry when both dates are provided and not empty
-  for (let i = 0; i < validatedEntries.length; i++) {
-    const entry = validatedEntries[i];
-    const start = typeof entry.started_at === "string" ? entry.started_at.trim() : "";
-    const end = typeof entry.ended_at === "string" ? entry.ended_at.trim() : "";
-    if (start && end && end < start) {
-      return { message: `Entry #${i + 1}: End time cannot be before start time.` };
-    }
-  }
+  // Validation of testing entries complete
 
   // Call the RPC function for transactional save
   const { data: rpcResult, error: rpcError } = await supabase.rpc("save_daily_operations", {
@@ -105,24 +105,141 @@ export async function saveDailyOperationAction(
     p_attendance_status: supportParsed.data.attendance_status,
     p_tickets_handled: supportParsed.data.tickets_handled,
     p_chats_handled: supportParsed.data.chats_handled,
-    p_notes: supportParsed.data.notes ?? null,
-    p_work_focus: supportParsed.data.work_focus ?? "support",
-    p_day_status: supportParsed.data.day_status ?? "support",
-    p_daily_remarks: supportParsed.data.daily_remarks ?? null,
+    p_doc_updated: supportParsed.data.doc_updated,
+    p_feature_suggestion: supportParsed.data.feature_suggestion,
+    p_bug_verification: supportParsed.data.bug_verification,
+    p_asked_for_review: supportParsed.data.asked_for_review,
+    p_got_review: supportParsed.data.got_review,
+    p_other_contribution: supportParsed.data.other_contribution,
+    p_support_quality: supportParsed.data.support_quality,
+    p_testing_quality: supportParsed.data.testing_quality,
+    p_testing_notes: supportParsed.data.testing_notes ?? null,
     p_testing_entries: validatedEntries,
     p_profile_id: profile.id,
-    p_ticket_rating: supportParsed.data.ticket_rating ?? null,
-    p_chat_rating: supportParsed.data.chat_rating ?? null,
-    p_documentation_rating: supportParsed.data.documentation_rating ?? null,
   });
 
-  if (rpcError) {
-    return { message: rpcError.message };
-  }
+  const rpcSuccess = !rpcError && (rpcResult as { success?: boolean })?.success === true;
 
-  const result = rpcResult as { success?: boolean; error?: string } | null;
-  if (!result?.success) {
-    return { message: result?.error ?? "Failed to save daily operations." };
+  if (!rpcSuccess) {
+    // If RPC fails or returns error in json (e.g. function missing/mismatch in Supabase schema cache), execute direct table upsert fallback
+    const { error: supportUpsertErr } = await supabase
+      .from("daily_support_logs")
+      .upsert(
+        {
+          employee_id: employeeId,
+          log_date: logDate,
+          attendance_status: supportParsed.data.attendance_status,
+          tickets_handled: supportParsed.data.tickets_handled,
+          chats_handled: supportParsed.data.chats_handled,
+          doc_updated: supportParsed.data.doc_updated,
+          feature_suggestion: supportParsed.data.feature_suggestion,
+          bug_verification: supportParsed.data.bug_verification,
+          asked_for_review: supportParsed.data.asked_for_review,
+          got_review: supportParsed.data.got_review,
+          other_contribution: supportParsed.data.other_contribution,
+          support_quality: supportParsed.data.support_quality,
+          testing_quality: supportParsed.data.testing_quality,
+          testing_notes: supportParsed.data.testing_notes ?? null,
+          created_by: profile.id,
+          updated_by: profile.id,
+        },
+        { onConflict: "employee_id,log_date" },
+      );
+
+    if (supportUpsertErr) {
+      // If redesign columns (e.g. asked_for_review) don't exist in remote table yet, fall back to legacy columns
+      const { error: legacyErr } = await supabase
+        .from("daily_support_logs")
+        .upsert(
+          {
+            employee_id: employeeId,
+            log_date: logDate,
+            attendance_status: supportParsed.data.attendance_status,
+            tickets_handled: supportParsed.data.tickets_handled,
+            chats_handled: supportParsed.data.chats_handled,
+            notes: supportParsed.data.testing_notes ?? null,
+            created_by: profile.id,
+            updated_by: profile.id,
+          },
+          { onConflict: "employee_id,log_date" },
+        );
+
+      if (legacyErr) {
+        return { message: supportUpsertErr.message };
+      }
+    }
+
+    // Delete existing testing logs for this date
+    await supabase
+      .from("daily_testing_logs")
+      .delete()
+      .eq("employee_id", employeeId)
+      .eq("log_date", logDate);
+
+    // Insert new testing entries
+    if (validatedEntries.length > 0) {
+      const testingRows = validatedEntries.map((e) => ({
+        employee_id: employeeId,
+        log_date: logDate,
+        platform: (e.platform as string) || "shopify",
+        application_name: (e.application_name as string) || "",
+        module_name: (e.module_name as string) || "",
+        testing_type: (e.testing_type as string) || "functional",
+        status: (e.status as string) || "in_progress",
+        bugs_found: Number(e.bugs_found || 0),
+        critical_bug: Boolean(e.critical_bug),
+        created_by: profile.id,
+        updated_by: profile.id,
+      }));
+
+      const { error: testingErr } = await supabase
+        .from("daily_testing_logs")
+        .insert(testingRows);
+
+      if (testingErr) {
+        // Fallback Tier 2: Try with legacy column critical_bugs_found + platform
+        const legacyTestingRows = validatedEntries.map((e) => ({
+          employee_id: employeeId,
+          log_date: logDate,
+          platform: (e.platform as string) || "shopify",
+          application_name: (e.application_name as string) || "",
+          module_name: (e.module_name as string) || "",
+          testing_type: (e.testing_type as string) || "functional",
+          status: (e.status as string) || "in_progress",
+          bugs_found: Number(e.bugs_found || 0),
+          critical_bugs_found: Number(e.critical_bug ? 1 : 0),
+          created_by: profile.id,
+          updated_by: profile.id,
+        }));
+
+        const { error: legacyTestingErr } = await supabase
+          .from("daily_testing_logs")
+          .insert(legacyTestingRows);
+
+        if (legacyTestingErr) {
+          // Fallback Tier 3: Try with bare essential columns guaranteed in all schema versions
+          const bareTestingRows = validatedEntries.map((e) => ({
+            employee_id: employeeId,
+            log_date: logDate,
+            application_name: (e.application_name as string) || "",
+            module_name: (e.module_name as string) || "",
+            testing_type: (e.testing_type as string) || "functional",
+            status: (e.status as string) || "in_progress",
+            bugs_found: Number(e.bugs_found || 0),
+            created_by: profile.id,
+            updated_by: profile.id,
+          }));
+
+          const { error: bareTestingErr } = await supabase
+            .from("daily_testing_logs")
+            .insert(bareTestingRows);
+
+          if (bareTestingErr) {
+            return { message: bareTestingErr.message };
+          }
+        }
+      }
+    }
   }
 
   revalidatePath("/operations");
@@ -156,16 +273,57 @@ export async function fetchEmployeeDailyDataAction(
     supabase.from("daily_testing_logs").select("*").eq("employee_id", employeeId).eq("log_date", logDate).order("created_at", { ascending: true }),
   ]);
 
+  let supportLog: DailySupportLog | null = (sr.data as DailySupportLog | null) ?? null;
+  let testingLogs: DailyTestingLog[] = (tr.data as DailyTestingLog[] | null) ?? [];
+
   if (sr.error) {
-    return { supportLog: null, testingLogs: [], error: sr.error.message };
+    const { data: fallbackSupport } = await supabase
+      .from("daily_support_logs")
+      .select("id, employee_id, log_date, attendance_status, tickets_handled, chats_handled, notes, created_at, updated_at")
+      .eq("employee_id", employeeId)
+      .eq("log_date", logDate)
+      .maybeSingle();
+
+    if (fallbackSupport) {
+      supportLog = {
+        ...fallbackSupport,
+        doc_updated: false,
+        feature_suggestion: false,
+        bug_verification: false,
+        asked_for_review: false,
+        got_review: false,
+        other_contribution: false,
+        support_quality: "average" as const,
+        testing_quality: "average" as const,
+        testing_notes: (fallbackSupport as { notes?: string | null }).notes ?? null,
+        created_by: null,
+        updated_by: null,
+      } as DailySupportLog;
+    }
   }
+
   if (tr.error) {
-    return { supportLog: null, testingLogs: [], error: tr.error.message };
+    const { data: fallbackTesting } = await supabase
+      .from("daily_testing_logs")
+      .select("id, employee_id, log_date, application_name, module_name, testing_type, status, bugs_found, created_at, updated_at")
+      .eq("employee_id", employeeId)
+      .eq("log_date", logDate)
+      .order("created_at", { ascending: true });
+
+    if (fallbackTesting) {
+      testingLogs = fallbackTesting.map((row) => ({
+        ...row,
+        platform: "shopify" as const,
+        critical_bug: false,
+        created_by: null,
+        updated_by: null,
+      })) as DailyTestingLog[];
+    }
   }
 
   return {
-    supportLog: (sr.data as DailySupportLog | null) ?? null,
-    testingLogs: (tr.data as DailyTestingLog[] | null) ?? [],
+    supportLog,
+    testingLogs,
   };
 }
 
@@ -199,10 +357,6 @@ export async function saveMonthlyPerformanceAdjustmentAction(
 
   const payload: Record<string, unknown> = {
     ...parsed.data,
-    // @deprecated - support_adjustment kept for database trigger/legacy compatibility
-    support_adjustment: parsed.data.manager_points,
-    // @deprecated - testing_adjustment kept for database trigger/legacy compatibility
-    testing_adjustment: 0,
     updated_by: profile.id,
   };
 

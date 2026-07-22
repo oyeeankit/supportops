@@ -4,49 +4,38 @@ import { testingQualityToScore } from "./types";
 // ---------------------------------------------------------------------------
 // Star rating thresholds (score is 1.0 – 5.0)
 // ---------------------------------------------------------------------------
-export type StarRating = "outstanding" | "excellent" | "good" | "average" | "needs_improvement";
+export type StarRating = "outstanding" | "very_good" | "good" | "needs_improvement" | "unsatisfactory";
 
 export const starRatingThresholds = {
-  outstanding: 4.8,
-  excellent: 4.3,
-  good: 3.8,
-  average: 3.0,
+  outstanding: 4.5,
+  very_good: 3.8,
+  good: 3.0,
+  needs_improvement: 2.0,
 } as const;
 
 export const starRatingLabels: Record<StarRating, string> = {
   outstanding: "Outstanding",
-  excellent: "Excellent",
+  very_good: "Very Good",
   good: "Good",
-  average: "Average",
   needs_improvement: "Needs Improvement",
+  unsatisfactory: "Unsatisfactory",
 };
 
 export const starRatingStars: Record<StarRating, string> = {
   outstanding: "★★★★★",
-  excellent: "★★★★☆",
-  good: "★★★★",
-  average: "★★★",
-  needs_improvement: "★★",
+  very_good: "★★★★☆",
+  good: "★★★☆☆",
+  needs_improvement: "★★☆☆☆",
+  unsatisfactory: "★☆☆☆☆",
 };
 
 // ---------------------------------------------------------------------------
 // Configurable weightages for support and testing sub-scores
 // ---------------------------------------------------------------------------
-export const SUPPORT_WEIGHTS = {
-  ticket: 0.4, // 40%
-  chat: 0.4, // 40%
-  documentation: 0.2, // 20%
-} as const;
-
-export const TESTING_WEIGHTS = {
-  taskCompletion: 0.6, // 60%
-  quality: 0.4, // 40%
-} as const;
-
-// When both support + testing work was done on the same day
-export const DAILY_WEIGHTS = {
-  support: 0.6, // 60%
+export const MONTHLY_WEIGHTS = {
+  support: 0.5, // 50%
   testing: 0.4, // 40%
+  manager: 0.1, // 10%
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -55,13 +44,15 @@ export const DAILY_WEIGHTS = {
 export type MonthlyPerformanceMetrics = {
   employee_id: string;
   full_name: string;
+  email?: string;
+  avatar_url?: string | null;
   role: AppRole;
   supportDays: number;
   testingDays: number;
   workingDays?: number;
-  supportScore: number; // 1-5 average across support days
-  testingScore: number; // 1-5 average across testing days
-  averageDailyScore: number; // 1-5 average of daily final scores
+  supportScore: number; // 1-5
+  testingScore: number; // 1-5
+  managerScore: number; // 1-5
   finalScore: number; // 1-5 monthly final
   starRating: StarRating;
   ratingLabel: string;
@@ -72,14 +63,19 @@ export type MonthlyPerformanceMetrics = {
   appsTested: number;
   bugsFound: number;
   criticalBugsFound: number;
-  supportAdjustment: number;
-  testingAdjustment: number;
+  // Checkbox totals
+  docUpdates: number;
+  featureSuggestions: number;
+  bugVerifications: number;
+  askedForReviews: number;
+  gotReviews: number;
+  otherContributions: number;
+  
   managerRemarks: string;
-  behaviorRating: number;
+  initiativeRating: number;
   communicationRating: number;
   ownershipRating: number;
   disciplineRating: number;
-  managerPoints: number;
 };
 
 export type MonthlyPerformanceSummary = {
@@ -93,7 +89,7 @@ export type MonthlyPerformanceSummary = {
   totalCriticalBugs: number;
   averageSupportScore: number; // 1-5
   averageTestingScore: number; // 1-5
-  averageDailyScore: number; // 1-5
+  averageManagerScore: number; // 1-5
   averageFinalScore: number; // 1-5
   bestSupportPerformer: string | null;
   bestTestingPerformer: string | null;
@@ -125,89 +121,47 @@ export function clamp(value: number, min = 1, max = 5) {
 
 export function getStarRating(score: number): { rating: StarRating; label: string } {
   if (score >= starRatingThresholds.outstanding) return { rating: "outstanding", label: starRatingLabels.outstanding };
-  if (score >= starRatingThresholds.excellent) return { rating: "excellent", label: starRatingLabels.excellent };
+  if (score >= starRatingThresholds.very_good) return { rating: "very_good", label: starRatingLabels.very_good };
   if (score >= starRatingThresholds.good) return { rating: "good", label: starRatingLabels.good };
-  if (score >= starRatingThresholds.average) return { rating: "average", label: starRatingLabels.average };
-  return { rating: "needs_improvement", label: starRatingLabels.needs_improvement };
+  if (score >= starRatingThresholds.needs_improvement) return { rating: "needs_improvement", label: starRatingLabels.needs_improvement };
+  return { rating: "unsatisfactory", label: starRatingLabels.unsatisfactory };
 }
 
 // ---------------------------------------------------------------------------
-// 1. Daily Support Score (1-5)
+// Final Monthly Score (1-5)
 // ---------------------------------------------------------------------------
-// Support Score = (Ticket Rating × 40%) + (Chat Rating × 40%) + (Doc Rating × 20%)
-//
-// Ticket Rating:  manager's 1-5 rating of ticket handling
-// Chat Rating:    manager's 1-5 rating of chat handling
-// Doc Rating:     manager's 1-5 rating of documentation quality
-//
-// If a rating is null (not yet set), it defaults to 3 (average).
+// Support = 50%, Testing = 40%, Manager = 10%
+// If a person doesn't do testing (testingEnabled=false), we re-distribute the weight.
+// E.g., Support = 80%, Manager = 20%
 // ---------------------------------------------------------------------------
-export function calculateDailySupportScore(
-  ticketRating: number | null,
-  chatRating: number | null,
-  documentationRating: number | null,
-): number {
-  const t = ticketRating ?? 3;
-  const c = chatRating ?? 3;
-  const d = documentationRating ?? 3;
-  const score = t * SUPPORT_WEIGHTS.ticket + c * SUPPORT_WEIGHTS.chat + d * SUPPORT_WEIGHTS.documentation;
-  return round(clamp(score), 2);
-}
-
-// ---------------------------------------------------------------------------
-// 2. Daily Testing Score (1-5)
-// ---------------------------------------------------------------------------
-// Testing Score = (Task Completion × 60%) + (Quality Score × 40%)
-//
-// Task Completion:  manager's 1-5 rating (Completed=5, Mostly=4, Partial=3, Blocked=2, NotDone=1)
-// Quality Score:    mapped from testing_quality (excellent=5, good=4, average=3, poor=2)
-//
-// For multiple testing entries on the same day, the average is taken.
-// ---------------------------------------------------------------------------
-export function calculateDailyTestingScore(
-  taskCompletionRatings: number[],
-  qualityScores: number[],
-): number {
-  if (taskCompletionRatings.length === 0 && qualityScores.length === 0) return 0;
-
-  const avgTask = taskCompletionRatings.length > 0
-    ? taskCompletionRatings.reduce((a, b) => a + b, 0) / taskCompletionRatings.length
-    : 3;
-  const avgQuality = qualityScores.length > 0
-    ? qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length
-    : 3;
-
-  const score = avgTask * TESTING_WEIGHTS.taskCompletion + avgQuality * TESTING_WEIGHTS.quality;
-  return round(clamp(score), 2);
-}
-
-// ---------------------------------------------------------------------------
-// 3. Daily Final Score (1-5)
-// ---------------------------------------------------------------------------
-// Support only  → Final = Support Score
-// Testing only  → Final = Testing Score
-// Both          → Final = (Support × 60%) + (Testing × 40%)
-// Neither       → Final = 0 (no work logged)
-// ---------------------------------------------------------------------------
-export function calculateDailyFinalScore(
+export function calculateMonthlyFinalScore(
   supportScore: number,
   testingScore: number,
-  hasSupportWork: boolean,
-  hasTestingWork: boolean,
+  managerScore: number,
+  hasSupport: boolean,
+  hasTesting: boolean,
 ): number {
-  if (hasSupportWork && hasTestingWork) {
-    return round(clamp(supportScore * DAILY_WEIGHTS.support + testingScore * DAILY_WEIGHTS.testing), 2);
+  if (!hasSupport && !hasTesting) return managerScore;
+  
+  if (hasSupport && hasTesting) {
+    return round(supportScore * MONTHLY_WEIGHTS.support + testingScore * MONTHLY_WEIGHTS.testing + managerScore * MONTHLY_WEIGHTS.manager, 2);
   }
-  if (hasSupportWork) return supportScore;
-  if (hasTestingWork) return testingScore;
-  return 0;
+  if (hasSupport && !hasTesting) {
+    // Redistribute 40% testing weight. Let's make it 80/20 for simplicity.
+    return round(supportScore * 0.8 + managerScore * 0.2, 2);
+  }
+  if (!hasSupport && hasTesting) {
+    // Redistribute 50% support weight. Let's make it 80/20.
+    return round(testingScore * 0.8 + managerScore * 0.2, 2);
+  }
+  return managerScore;
 }
 
 // ---------------------------------------------------------------------------
 // Badge variant for UI components
 // ---------------------------------------------------------------------------
 export function getScoreBadgeVariant(score: number) {
-  if (score >= 4.3) return "success";
+  if (score >= 4.5) return "success";
   if (score >= 3.8) return "secondary";
   if (score >= 3.0) return "warning";
   return "danger";

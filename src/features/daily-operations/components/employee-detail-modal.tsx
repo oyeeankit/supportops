@@ -61,7 +61,7 @@ export function EmployeeDetailModal({ employee, summary, open, onClose, role, se
   // Parse manager remarks & ratings
   const initialRemarks = employee?.managerRemarks || "";
   let initialRemarksText = initialRemarks;
-  let initialBehaviour = employee?.behaviorRating ?? 3;
+  let initialBehaviour = employee?.initiativeRating ?? 3;
   let initialCommunication = employee?.communicationRating ?? 3;
   let initialOwnership = employee?.ownershipRating ?? 3;
   let initialDiscipline = employee?.disciplineRating ?? 3;
@@ -85,14 +85,14 @@ export function EmployeeDetailModal({ employee, summary, open, onClose, role, se
   const [communication, setCommunication] = useState(initialCommunication);
   const [ownership, setOwnership] = useState(initialOwnership);
   const [discipline, setDiscipline] = useState(initialDiscipline);
-  const [managerPoints, setManagerPoints] = useState(employee?.managerPoints || 0);
+  const [managerPoints, setManagerPoints] = useState(employee?.managerScore || 0);
   const [remarks, setRemarks] = useState(initialRemarksText);
 
   // Sync state when active employee profile switches
   useEffect(() => {
     if (employee) {
       let rText = employee.managerRemarks || "";
-      let b = employee.behaviorRating ?? 3;
+      let b = employee.initiativeRating ?? 3;
       let c = employee.communicationRating ?? 3;
       let o = employee.ownershipRating ?? 3;
       let d = employee.disciplineRating ?? 3;
@@ -112,7 +112,7 @@ export function EmployeeDetailModal({ employee, summary, open, onClose, role, se
       setCommunication(c);
       setOwnership(o);
       setDiscipline(d);
-      setManagerPoints(employee.managerPoints || 0);
+      setManagerPoints(employee.managerScore || 0);
       setRemarks(rText);
     }
   }, [employee]);

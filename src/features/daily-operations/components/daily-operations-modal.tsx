@@ -20,6 +20,8 @@ import {
   testingPlatforms,
   testingQualities,
   testingQualityLabels,
+  supportQualities,
+  supportQualityLabels,
   testingStatuses,
   testingStatusLabels,
   testingTypes,
@@ -34,6 +36,7 @@ import {
   type TestingPlatform,
   emptyTestingEntry,
   type TestingQuality,
+  type SupportQuality,
 } from "../types";
 import {
   saveDailyOperationAction,
@@ -58,12 +61,7 @@ function logToFormEntry(log: DailyTestingLog): TestingEntryFormData {
     testing_type: log.testing_type,
     status: log.status,
     bugs_found: log.bugs_found,
-    critical_bugs_found: log.critical_bugs_found,
-    testing_quality: log.testing_quality,
-    task_completion: log.task_completion ?? 5,
-    started_at: log.started_at ?? "",
-    ended_at: log.ended_at ?? "",
-    notes: log.notes ?? "",
+    critical_bug: log.critical_bug,
   };
 }
 
@@ -79,7 +77,7 @@ function computeSummary(
     totalAppsTested: uniqueApps.size,
     totalTestingEntries: entries.length,
     totalBugs: entries.reduce((sum, e) => sum + e.bugs_found, 0),
-    criticalBugs: entries.reduce((sum, e) => sum + e.critical_bugs_found, 0),
+    criticalBugs: entries.reduce((sum, e) => sum + (e.critical_bug ? 1 : 0), 0),
     completedTests: entries.filter((e) => e.status === "completed").length,
     inProgressTests: entries.filter((e) => e.status === "in_progress").length,
     blockedTests: entries.filter((e) => e.status === "blocked").length,
@@ -98,6 +96,7 @@ type Props = {
   // Pre-loaded data for the initial date (avoids a fetch on first open)
   initialSupportLog: DailySupportLog | null;
   initialTestingLogs: DailyTestingLog[];
+  onNextEmployee?: () => void;
 };
 
 export function DailyOperationsModal({
@@ -110,6 +109,7 @@ export function DailyOperationsModal({
   initialDate,
   initialSupportLog,
   initialTestingLogs,
+  onNextEmployee,
 }: Props) {
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [supportLog, setSupportLog] = useState<DailySupportLog | null>(initialSupportLog);
@@ -212,6 +212,7 @@ export function DailyOperationsModal({
               testingLogs={testingLogs}
               onSaved={onSaved}
               employeeRole={employeeRole}
+              onNextEmployee={onNextEmployee}
             />
           )}
         </div>
@@ -227,6 +228,7 @@ function ModalFormBody({
   testingLogs,
   onSaved,
   employeeRole,
+  onNextEmployee,
 }: {
   employeeId: string;
   date: string;
@@ -234,6 +236,7 @@ function ModalFormBody({
   testingLogs: DailyTestingLog[];
   onSaved: () => void;
   employeeRole: AppRole;
+  onNextEmployee?: () => void;
 }) {
   const [state, formAction, pending] = useActionState(saveDailyOperationAction, initialState);
   const testingEntriesRef = useRef<HTMLInputElement>(null);
@@ -243,13 +246,25 @@ function ModalFormBody({
   );
   const [ticketsHandled, setTicketsHandled] = useState(supportLog?.tickets_handled ?? 0);
   const [chatsHandled, setChatsHandled] = useState(supportLog?.chats_handled ?? 0);
-  const [supportNotes, setSupportNotes] = useState(supportLog?.notes ?? "");
+  
+  const [docUpdated, setDocUpdated] = useState(supportLog?.doc_updated ?? false);
+  const [featureSuggestion, setFeatureSuggestion] = useState(supportLog?.feature_suggestion ?? false);
+  const [bugVerification, setBugVerification] = useState(supportLog?.bug_verification ?? false);
+  const [askedForReview, setAskedForReview] = useState(supportLog?.asked_for_review ?? false);
+  const [gotReview, setGotReview] = useState(supportLog?.got_review ?? false);
+  const [otherContribution, setOtherContribution] = useState(supportLog?.other_contribution ?? false);
+  
+  const [supportQuality, setSupportQuality] = useState<SupportQuality>(supportLog?.support_quality ?? "good");
+  const [testingQuality, setTestingQuality] = useState<TestingQuality>(supportLog?.testing_quality ?? "good");
+  const [testingNotes, setTestingNotes] = useState(supportLog?.testing_notes ?? "");
+
+  const [actionType, setActionType] = useState<"save" | "next">("save");
 
   const [testingEntries, setTestingEntries] = useState<TestingEntryFormData[]>(() => {
     if (testingLogs.length > 0) {
       return testingLogs.map(logToFormEntry);
     }
-    return [emptyTestingEntry(date)];
+    return [emptyTestingEntry()];
   });
 
   const [supportOpen, setSupportOpen] = useState(true);
@@ -264,11 +279,11 @@ function ModalFormBody({
     [testingEntries, ticketsHandled, chatsHandled],
   );
 
-  function updateTestingEntry(index: number, field: keyof TestingEntryFormData, value: string | number | null) {
+  function updateTestingEntry(index: number, field: keyof TestingEntryFormData, value: string | number | boolean | null) {
     setTestingEntries((prev) => prev.map((entry, i) => (i === index ? { ...entry, [field]: value } : entry)));
   }
   function addTestingEntry() {
-    setTestingEntries((prev) => [...prev, emptyTestingEntry(date)]);
+    setTestingEntries((prev) => [...prev, emptyTestingEntry()]);
   }
   function removeTestingEntry(index: number) {
     setTestingEntries((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
@@ -296,9 +311,13 @@ function ModalFormBody({
   // Close modal on successful save
   useEffect(() => {
     if (state.saved && !pending) {
-      onSaved();
+      if (actionType === "next" && onNextEmployee) {
+        onNextEmployee();
+      } else {
+        onSaved();
+      }
     }
-  }, [state.saved, pending, onSaved]);
+  }, [state.saved, pending, onSaved, actionType, onNextEmployee]);
 
   function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (testingEntriesRef.current) {
@@ -362,15 +381,50 @@ function ModalFormBody({
                     className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
                   />
                 </Field>
-                <Field label="Support Notes" error={errorFor("notes")}>
-                  <textarea
-                    name="notes"
-                    value={supportNotes}
-                    onChange={(e) => setSupportNotes(e.target.value)}
-                    placeholder="Optional support context"
-                    className="min-h-20 w-full rounded-xl border border-border/80 bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all duration-200 resize-y"
-                  />
+                <Field label="Support Quality" error={errorFor("support_quality")}>
+                  <Select
+                    name="support_quality"
+                    value={supportQuality}
+                    onChange={(e) => setSupportQuality(e.target.value as SupportQuality)}
+                    className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
+                  >
+                    {supportQualities.map((status) => (
+                      <option key={status} value={status}>
+                        {supportQualityLabels[status]}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
+              </div>
+
+              <div className="mt-6">
+                <Label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-muted-foreground">Support Contributions</Label>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <label className="flex items-center gap-3 rounded-xl border border-border/60 bg-slate-50/30 p-3 hover:bg-slate-100/50 dark:bg-slate-900/10 dark:hover:bg-slate-800/30 cursor-pointer transition-colors">
+                    <input type="checkbox" name="doc_updated" checked={docUpdated} onChange={(e) => setDocUpdated(e.target.checked)} className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" />
+                    <span className="text-sm font-medium">Documentation Updated</span>
+                  </label>
+                  <label className="flex items-center gap-3 rounded-xl border border-border/60 bg-slate-50/30 p-3 hover:bg-slate-100/50 dark:bg-slate-900/10 dark:hover:bg-slate-800/30 cursor-pointer transition-colors">
+                    <input type="checkbox" name="feature_suggestion" checked={featureSuggestion} onChange={(e) => setFeatureSuggestion(e.target.checked)} className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" />
+                    <span className="text-sm font-medium">Feature Suggestion</span>
+                  </label>
+                  <label className="flex items-center gap-3 rounded-xl border border-border/60 bg-slate-50/30 p-3 hover:bg-slate-100/50 dark:bg-slate-900/10 dark:hover:bg-slate-800/30 cursor-pointer transition-colors">
+                    <input type="checkbox" name="bug_verification" checked={bugVerification} onChange={(e) => setBugVerification(e.target.checked)} className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" />
+                    <span className="text-sm font-medium">Bug Verification</span>
+                  </label>
+                  <label className="flex items-center gap-3 rounded-xl border border-border/60 bg-slate-50/30 p-3 hover:bg-slate-100/50 dark:bg-slate-900/10 dark:hover:bg-slate-800/30 cursor-pointer transition-colors">
+                    <input type="checkbox" name="asked_for_review" checked={askedForReview} onChange={(e) => setAskedForReview(e.target.checked)} className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" />
+                    <span className="text-sm font-medium">Asked for Review</span>
+                  </label>
+                  <label className="flex items-center gap-3 rounded-xl border border-border/60 bg-amber-50/50 p-3 hover:bg-amber-100/50 dark:bg-amber-950/20 dark:hover:bg-amber-900/30 cursor-pointer transition-colors border-amber-200/50 dark:border-amber-900/50">
+                    <input type="checkbox" name="got_review" checked={gotReview} onChange={(e) => setGotReview(e.target.checked)} className="h-4 w-4 rounded text-amber-500 focus:ring-amber-500" />
+                    <span className="text-sm font-bold text-amber-700 dark:text-amber-400">Got Review ⭐</span>
+                  </label>
+                  <label className="flex items-center gap-3 rounded-xl border border-border/60 bg-slate-50/30 p-3 hover:bg-slate-100/50 dark:bg-slate-900/10 dark:hover:bg-slate-800/30 cursor-pointer transition-colors">
+                    <input type="checkbox" name="other_contribution" checked={otherContribution} onChange={(e) => setOtherContribution(e.target.checked)} className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" />
+                    <span className="text-sm font-medium">Other Contribution</span>
+                  </label>
+                </div>
               </div>
             </div>
           )}
@@ -420,6 +474,38 @@ function ModalFormBody({
                 <Button type="button" variant="outline" size="sm" onClick={addTestingEntry} disabled={pending} className="rounded-xl border-dashed border-2 hover:border-violet-400">
                   <Plus className="mr-1 h-4 w-4" /> Add Testing Activity
                 </Button>
+
+                {/* Overall Testing Quality and Notes */}
+                {testingEntries.length > 0 && !isNoTestingAssigned(testingEntries[0].application_name) && (
+                  <div className="mt-8 rounded-xl border border-border/60 bg-slate-50/40 dark:bg-slate-900/20 p-5 space-y-5">
+                    <h3 className="text-sm font-semibold tracking-tight uppercase text-muted-foreground">Overall Testing Summary</h3>
+                    <div className="grid gap-5 md:grid-cols-2">
+                      <Field label="Overall Testing Quality" error={errorFor("testing_quality")}>
+                        <Select
+                          name="testing_quality"
+                          value={testingQuality}
+                          onChange={(e) => setTestingQuality(e.target.value as TestingQuality)}
+                          className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
+                        >
+                          {testingQualities.map((status) => (
+                            <option key={status} value={status}>
+                              {testingQualityLabels[status]}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                      <Field label="General Testing Notes" error={errorFor("testing_notes")}>
+                        <textarea
+                          name="testing_notes"
+                          value={testingNotes}
+                          onChange={(e) => setTestingNotes(e.target.value)}
+                          placeholder="Optional notes for the entire testing session (e.g. blockers, general remarks)"
+                          className="min-h-20 w-full rounded-xl border border-border/80 bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all duration-200 resize-y"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -465,9 +551,19 @@ function ModalFormBody({
         <Button type="button" variant="outline" onClick={onSaved} disabled={pending} className="rounded-xl px-5 hover:bg-slate-100">
           Cancel
         </Button>
-        <Button type="submit" disabled={pending} className="rounded-xl px-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium hover:-translate-y-0.5 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:translate-y-0 active:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
-          {pending ? "Saving..." : "Save Daily Operations"}
+        <Button type="submit" disabled={pending} onClick={() => setActionType("save")} className="rounded-xl px-5 border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all duration-200 disabled:opacity-50">
+          {pending && actionType === "save" ? "Saving..." : "Save & Close"}
         </Button>
+        {onNextEmployee && (
+          <Button type="submit" disabled={pending} onClick={() => setActionType("next")} className="rounded-xl px-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium hover:-translate-y-0.5 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:translate-y-0 active:shadow-md transition-all duration-200 disabled:opacity-50">
+            {pending && actionType === "next" ? "Saving..." : "Save & Next Employee"}
+          </Button>
+        )}
+        {!onNextEmployee && (
+          <Button type="submit" disabled={pending} onClick={() => setActionType("save")} className="rounded-xl px-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium hover:-translate-y-0.5 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:translate-y-0 active:shadow-md transition-all duration-200 disabled:opacity-50">
+            {pending ? "Saving..." : "Save Daily Operations"}
+          </Button>
+        )}
       </div>
     </form>
   );
@@ -487,7 +583,7 @@ const testingModulesList = [
 ];
 
 const qualityLevels: { value: TestingQuality; stars: number; label: string }[] = [
-  { value: "poor", stars: 1, label: "Poor" },
+  { value: "needs_improvement", stars: 1, label: "Poor" },
   { value: "average", stars: 2, label: "Average" },
   { value: "good", stars: 3, label: "Good" },
   { value: "excellent", stars: 4, label: "Excellent" },
@@ -552,7 +648,7 @@ function TestingEntryCard({
   canRemove: boolean;
   canMoveUp: boolean;
   canMoveDown: boolean;
-  onChange: (field: keyof TestingEntryFormData, value: string | number | null) => void;
+  onChange: (field: keyof TestingEntryFormData, value: string | number | boolean | null) => void;
   onRemove: () => void;
   onDuplicate: () => void;
   onMoveUp: () => void;
@@ -608,12 +704,7 @@ function TestingEntryCard({
                   onChange("testing_type", "functional");
                   onChange("status", "completed");
                   onChange("bugs_found", 0);
-                  onChange("critical_bugs_found", 0);
-                  onChange("testing_quality", "good");
-                  onChange("task_completion", 5);
-                  onChange("started_at", "");
-                  onChange("ended_at", "");
-                  onChange("notes", "");
+                  onChange("critical_bug", false);
                 } else {
                   onChange("application_name", value);
                   onChange("platform", platform);
@@ -638,8 +729,32 @@ function TestingEntryCard({
           </Field>
         </div>
 
-        {/* Row 2: Bugs Found and Testing Quality */}
-        <div className="grid gap-4 md:grid-cols-2">
+        {/* Row 2: Type, Status, Bugs */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Field label="Testing Type">
+            <Select
+              value={entry.testing_type}
+              onChange={(e) => onChange("testing_type", e.target.value)}
+              disabled={isNoTestingAssigned(entry.application_name)}
+              className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
+            >
+              {testingTypes.map((t) => (
+                <option key={t} value={t}>{testingTypeLabels[t]}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Status">
+            <Select
+              value={entry.status}
+              onChange={(e) => onChange("status", e.target.value)}
+              disabled={isNoTestingAssigned(entry.application_name)}
+              className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
+            >
+              {testingStatuses.map((s) => (
+                <option key={s} value={s}>{testingStatusLabels[s]}</option>
+              ))}
+            </Select>
+          </Field>
           <Field label="Bugs Found">
             <Input
               type="number"
@@ -650,48 +765,19 @@ function TestingEntryCard({
               className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
             />
           </Field>
-          <Field label="Testing Quality">
-            <div className="flex h-10 items-center">
-              <StarRating
-                value={entry.testing_quality}
-                onChange={(val) => onChange("testing_quality", val)}
-                disabled={isNoTestingAssigned(entry.application_name)}
-              />
+          <Field label="Critical Bug">
+            <div className="flex h-10 items-center pl-2">
+              <label className="flex items-center gap-2 cursor-pointer opacity-100 group">
+                <input
+                  type="checkbox"
+                  checked={entry.critical_bug}
+                  onChange={(e) => onChange("critical_bug", e.target.checked)}
+                  disabled={isNoTestingAssigned(entry.application_name)}
+                  className="h-5 w-5 rounded border-red-300 text-red-600 focus:ring-red-500 disabled:opacity-50"
+                />
+                <span className="text-sm font-medium text-red-600 group-hover:text-red-700">Critical</span>
+              </label>
             </div>
-          </Field>
-        </div>
-
-        {/* Row 3: Started At and Ended At */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Testing Started">
-            <Input
-              type="datetime-local"
-              value={entry.started_at}
-              onChange={(e) => onChange("started_at", e.target.value)}
-              disabled={isNoTestingAssigned(entry.application_name)}
-              className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
-            />
-          </Field>
-          <Field label="Testing Ended">
-            <Input
-              type="datetime-local"
-              value={entry.ended_at}
-              onChange={(e) => onChange("ended_at", e.target.value)}
-              disabled={isNoTestingAssigned(entry.application_name)}
-              className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
-            />
-          </Field>
-        </div>
-
-        {/* Row 4: Testing Notes */}
-        <div>
-          <Field label="Testing Notes">
-            <textarea
-              value={entry.notes}
-              onChange={(e) => onChange("notes", e.target.value)}
-              placeholder="Optional notes for this testing entry"
-              className="min-h-20 w-full rounded-xl border border-border/80 bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all duration-200 resize-y"
-            />
           </Field>
         </div>
       </CardContent>

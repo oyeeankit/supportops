@@ -26,14 +26,14 @@ export const testingTypes = [
 
 export const testingStatuses = ["in_progress", "completed", "blocked", "on_hold"] as const;
 
-export const testingQualities = ["excellent", "good", "average", "poor"] as const;
+export const testingQualities = ["excellent", "good", "average", "needs_improvement"] as const;
 
-export const workFocusOptions = ["support", "testing", "support_testing", "meeting", "training", "leave"] as const;
+export const supportQualities = ["excellent", "good", "average", "needs_improvement"] as const;
 
 export type TestingType = (typeof testingTypes)[number];
 export type TestingStatus = (typeof testingStatuses)[number];
 export type TestingQuality = (typeof testingQualities)[number];
-export type WorkFocus = (typeof workFocusOptions)[number];
+export type SupportQuality = (typeof supportQualities)[number];
 
 // ---------------------------------------------------------------------------
 // Platform definitions and app catalogue
@@ -73,7 +73,6 @@ export const appsByPlatform: Record<TestingPlatform, readonly string[]> = {
     "Outlink",
     "Prime Product Badges",
     "Pro Price Editor",
-    "Robo",
     "Shipr",
     "Sleek",
     "Smart",
@@ -122,25 +121,17 @@ export const testingQualityLabels: Record<TestingQuality, string> = {
   excellent: "Excellent",
   good: "Good",
   average: "Average",
-  poor: "Poor",
+  needs_improvement: "Needs Improvement",
 };
 
-export const workFocusLabels: Record<WorkFocus, string> = {
-  support: "Support",
-  testing: "Testing",
-  support_testing: "Support + Testing",
-  meeting: "Meeting",
-  training: "Training",
-  leave: "Leave",
+export const supportQualityLabels: Record<SupportQuality, string> = {
+  excellent: "Excellent",
+  good: "Good",
+  average: "Average",
+  needs_improvement: "Needs Improvement",
 };
 
-export const dayStatusOptions = workFocusOptions;
-export type DayStatus = WorkFocus;
-export const dayStatusLabels = workFocusLabels;
-
-// ---------------------------------------------------------------------------
 // Manager rating scale (1-5) used for daily scoring
-// ---------------------------------------------------------------------------
 export const managerRatingOptions = [1, 2, 3, 4, 5] as const;
 export type ManagerRating = (typeof managerRatingOptions)[number];
 
@@ -152,24 +143,19 @@ export const managerRatingLabels: Record<number, string> = {
   1: "Unsatisfactory",
 };
 
-// Testing task completion rating (per testing entry)
-export const taskCompletionOptions = [1, 2, 3, 4, 5] as const;
-export type TaskCompletion = (typeof taskCompletionOptions)[number];
-
-export const taskCompletionLabels: Record<number, string> = {
-  5: "Completed",
-  4: "Mostly Completed",
-  3: "Partially Completed",
-  2: "Blocked",
-  1: "Not Done",
-};
-
-// Map testing_quality values to 1-5 numeric scores
+// Map testing_quality values to 1-5 numeric scores (used in performance formulas)
 export const testingQualityToScore: Record<TestingQuality, number> = {
   excellent: 5,
   good: 4,
   average: 3,
-  poor: 2,
+  needs_improvement: 2,
+};
+
+export const supportQualityToScore: Record<SupportQuality, number> = {
+  excellent: 5,
+  good: 4,
+  average: 3,
+  needs_improvement: 2,
 };
 
 export type DailySupportLog = {
@@ -179,14 +165,15 @@ export type DailySupportLog = {
   attendance_status: AttendanceStatus;
   tickets_handled: number;
   chats_handled: number;
-  notes: string | null;
-  work_focus: string | null;
-  day_status: string | null;
-  daily_remarks: string | null;
-  // Manager ratings (1-5)
-  ticket_rating: number | null;
-  chat_rating: number | null;
-  documentation_rating: number | null;
+  doc_updated: boolean;
+  feature_suggestion: boolean;
+  bug_verification: boolean;
+  asked_for_review: boolean;
+  got_review: boolean;
+  other_contribution: boolean;
+  support_quality: SupportQuality;
+  testing_quality: TestingQuality;
+  testing_notes: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -203,13 +190,7 @@ export type DailyTestingLog = {
   testing_type: TestingType;
   status: TestingStatus;
   bugs_found: number;
-  critical_bugs_found: number;
-  testing_quality: TestingQuality;
-  // Manager rating (1-5)
-  task_completion: number | null;
-  started_at: string | null;
-  ended_at: string | null;
-  notes: string | null;
+  critical_bug: boolean;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -224,17 +205,10 @@ export type TestingEntryFormData = {
   testing_type: TestingType;
   status: TestingStatus;
   bugs_found: number;
-  critical_bugs_found: number;
-  testing_quality: TestingQuality;
-  task_completion: number;
-  started_at: string;
-  ended_at: string;
-  notes: string;
+  critical_bug: boolean;
 };
 
-export function emptyTestingEntry(date: string): TestingEntryFormData {
-  const dateStart = `${date}T09:00:00`;
-  const dateEnd = `${date}T17:00:00`;
+export function emptyTestingEntry(): TestingEntryFormData {
   return {
     platform: "shopify",
     application_name: "",
@@ -242,12 +216,7 @@ export function emptyTestingEntry(date: string): TestingEntryFormData {
     testing_type: "functional",
     status: "in_progress",
     bugs_found: 0,
-    critical_bugs_found: 0,
-    testing_quality: "good",
-    task_completion: 5,
-    started_at: dateStart,
-    ended_at: dateEnd,
-    notes: "",
+    critical_bug: false,
   };
 }
 

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { X, CheckCircle, Calendar, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { usePathname } from "next/navigation";
 
 export type ReminderType =
   | "daily_log"
@@ -36,6 +37,7 @@ const dailyLogPrompts = [
 ];
 
 export function DailyLogReminder({ hasLogged, type = "daily_log" }: Props) {
+  const pathname = usePathname();
   const [visible, setVisible] = React.useState(false);
   const [speechText, setSpeechText] = React.useState("");
   const [mascotState, setMascotState] = React.useState<"idle" | "waving" | "pointing" | "success">("idle");
@@ -154,6 +156,7 @@ export function DailyLogReminder({ hasLogged, type = "daily_log" }: Props) {
     setVisible(false);
   };
 
+  if (pathname === "/dashboard") return null;
   if (!visible) return null;
 
   return (

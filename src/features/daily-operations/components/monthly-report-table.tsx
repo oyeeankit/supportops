@@ -84,12 +84,11 @@ export function MonthlyReportTable({ data, search, setSearch, sort, direction, o
       ),
     },
     {
-      key: "managerPoints",
-      label: "Manager Points",
-      render: (row) => {
-        const pts = row.supportAdjustment || 0;
-        return <span className={pts > 0 ? "text-emerald-600 font-semibold" : pts < 0 ? "text-destructive font-semibold" : "text-muted-foreground"}>{pts > 0 ? `+${pts}` : pts}</span>;
-      },
+      key: "managerScore",
+      label: "Manager Score",
+      render: (row) => (
+        <Badge variant={getScoreBadgeVariant(row.managerScore)}>{row.managerScore.toFixed(2)}</Badge>
+      ),
     },
     {
       key: "finalScore",
@@ -112,7 +111,7 @@ export function MonthlyReportTable({ data, search, setSearch, sort, direction, o
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => onSort("finalScore")}>Sort by Final</Button>
-          <Button variant="outline" size="sm" onClick={() => onSort("averageDailyScore")}>Sort by Avg Daily</Button>
+          <Button variant="outline" size="sm" onClick={() => onSort("managerScore")}>Sort by Manager Score</Button>
         </div>
       </div>
       <DataTable data={sorted} columns={columns} empty={<div className="rounded-md bg-muted px-3 py-4 text-sm">No results found.</div>} />

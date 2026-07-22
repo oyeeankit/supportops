@@ -24,7 +24,7 @@ export function EmployeeDetailPanel({ employee }: { employee: MonthlyPerformance
 
   // Use pre-normalized ratings from queries
   const remarks = metrics.managerRemarks;
-  const behaviour = metrics.behaviorRating;
+  const initiative = metrics.initiativeRating;
   const communication = metrics.communicationRating;
   const ownership = metrics.ownershipRating;
   const discipline = metrics.disciplineRating;
@@ -51,6 +51,12 @@ export function EmployeeDetailPanel({ employee }: { employee: MonthlyPerformance
             <Detail label="Total Tickets Resolved" value={metrics.totalTickets} />
             <Detail label="Total Chats Handled" value={metrics.totalChats} />
             <Detail label="Average Support Quality" value={metrics.supportScore === 0 ? "N/A" : `${metrics.supportScore.toFixed(2)} / 5`} />
+            <Detail label="Documentation Updates" value={metrics.docUpdates} />
+            <Detail label="Feature Suggestions" value={metrics.featureSuggestions} />
+            <Detail label="Bug Verifications" value={metrics.bugVerifications} />
+            <Detail label="Asked For Review" value={metrics.askedForReviews} />
+            <Detail label="Got Review" value={metrics.gotReviews} />
+            <Detail label="Other Contributions" value={metrics.otherContributions} />
           </div>
         </div>
       )}
@@ -75,8 +81,9 @@ export function EmployeeDetailPanel({ employee }: { employee: MonthlyPerformance
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
           {showSupport && <ScoreCard label="Support Score" score={metrics.supportScore} na={metrics.supportDays === 0} />}
           {showTesting && <ScoreCard label="Testing Score" score={metrics.testingScore} na={metrics.testingDays === 0} />}
+          <ScoreCard label="Manager Eval" score={metrics.managerScore} />
           <ScoreCard label="Final Score" score={metrics.finalScore} />
-          <div className="rounded-lg border border-border bg-background p-4">
+          <div className="rounded-lg border border-border bg-background p-4 md:col-span-4">
             <p className="text-sm text-muted-foreground font-medium">Performance Rating</p>
             <p className="mt-2 text-lg font-semibold">{metrics.ratingLabel}</p>
           </div>
@@ -88,22 +95,13 @@ export function EmployeeDetailPanel({ employee }: { employee: MonthlyPerformance
         <h3 className="text-base font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Manager Evaluation</h3>
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-            <RatingDisplay label="Team Behaviour" value={behaviour} />
+            <RatingDisplay label="Initiative" value={initiative} />
             <RatingDisplay label="Communication" value={communication} />
             <RatingDisplay label="Ownership" value={ownership} />
             <RatingDisplay label="Discipline" value={discipline} />
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-lg border border-border bg-background p-4 md:col-span-1">
-              <p className="text-sm text-muted-foreground font-medium">Overall Manager Points</p>
-              <p className={cn(
-                "mt-2 text-2xl font-bold",
-                metrics.managerPoints > 0 ? "text-emerald-600" : metrics.managerPoints < 0 ? "text-destructive" : "text-muted-foreground"
-              )}>
-                {metrics.managerPoints > 0 ? `+${metrics.managerPoints}` : metrics.managerPoints}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-background p-4 md:col-span-2">
+          <div className="grid gap-4 md:grid-cols-1">
+            <div className="rounded-lg border border-border bg-background p-4">
               <p className="text-sm text-muted-foreground font-medium">Manager Remarks</p>
               <p className="mt-2 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
                 {remarks || <span className="text-muted-foreground italic">No feedback remarks entered.</span>}

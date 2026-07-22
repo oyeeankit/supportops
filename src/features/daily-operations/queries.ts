@@ -4,9 +4,7 @@ import { canManageSupport, canManageTesting, type AppRole, type UserProfile } fr
 import type { Shift } from "@/features/employees/types";
 import type { DailySupportLog, DailyTestingLog, TeamMemberDailyRow, TestingQuality } from "./types";
 import {
-  calculateDailyFinalScore,
-  calculateDailySupportScore,
-  calculateDailyTestingScore,
+  calculateMonthlyFinalScore,
   getExpectedWorkingDays,
   getStarRating,
   round,
@@ -14,7 +12,7 @@ import {
   type MonthlyPerformanceMetrics,
   type MonthlyPerformanceSummary,
 } from "./performance";
-import { testingQualityToScore } from "./types";
+import { testingQualityToScore, supportQualityToScore } from "./types";
 
 type ProfileRow = {
   id: string;
@@ -42,7 +40,7 @@ function isSchemaCacheError(error: { message?: string } | null) {
   if (!error?.message) {
     return false;
   }
-  return /Could not find the table|relation "[^"]+" does not exist|invalid schema/i.test(error.message);
+  return /Could not find the|relation "[^"]+" does not exist|invalid schema|column|schema cache/i.test(error.message);
 }
 
 type LegacyOperation = {
@@ -63,13 +61,15 @@ function toSupportLog(legacy: LegacyOperation): DailySupportLog {
     attendance_status: legacy.attendance_status,
     tickets_handled: legacy.tickets_resolved,
     chats_handled: legacy.chats_handled,
-    notes: null,
-    work_focus: null,
-    day_status: null,
-    daily_remarks: null,
-    ticket_rating: null,
-    chat_rating: null,
-    documentation_rating: null,
+    doc_updated: false,
+    feature_suggestion: false,
+    bug_verification: false,
+    asked_for_review: false,
+    got_review: false,
+    other_contribution: false,
+    support_quality: "average",
+    testing_quality: "average",
+    testing_notes: null,
     created_by: null,
     updated_by: null,
     created_at: new Date().toISOString(),
@@ -92,12 +92,7 @@ function toTestingLogs(legacy: LegacyOperation): DailyTestingLog[] {
       testing_type: "functional",
       status: "completed",
       bugs_found: 0,
-      critical_bugs_found: 0,
-      testing_quality: "good",
-      task_completion: 5,
-      started_at: null,
-      ended_at: null,
-      notes: legacy.current_testing_task ?? null,
+      critical_bug: false,
       created_by: null,
       updated_by: null,
       created_at: new Date().toISOString(),
@@ -120,6 +115,115 @@ async function fetchLegacyOperations(
     return { data: [] as LegacyOperation[], error };
   }
   return { data: (data ?? []) as LegacyOperation[], error: null };
+}
+
+async function fetchDailySupportLogsWithFallback(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  startDate: string,
+  endDate: string | undefined,
+  employeeIds: string[],
+) {
+  let query = supabase.from("daily_support_logs").select("*").in("employee_id", employeeIds);
+  if (endDate) {
+    query = query.gte("log_date", startDate).lte("log_date", endDate).order("log_date", { ascending: false });
+  } else {
+    query = query.eq("log_date", startDate);
+  }
+
+  const { data, error } = await query;
+  if (!error) {
+    return { data: (data ?? []) as DailySupportLog[], error: null };
+  }
+
+  // If select("*") failed because redesign columns (e.g. asked_for_review) are missing, query baseline columns
+  let legacyQuery = supabase
+    .from("daily_support_logs")
+    .select("id, employee_id, log_date, attendance_status, tickets_handled, chats_handled, created_at, updated_at")
+    .in("employee_id", employeeIds);
+
+  if (endDate) {
+    legacyQuery = legacyQuery.gte("log_date", startDate).lte("log_date", endDate).order("log_date", { ascending: false });
+  } else {
+    legacyQuery = legacyQuery.eq("log_date", startDate);
+  }
+
+  const { data: legacyData, error: legacyError } = await legacyQuery;
+  if (!legacyError && legacyData) {
+    const mapped = legacyData.map((row) => ({
+      ...row,
+      doc_updated: false,
+      feature_suggestion: false,
+      bug_verification: false,
+      asked_for_review: false,
+      got_review: false,
+      other_contribution: false,
+      support_quality: "average" as const,
+      testing_quality: "average" as const,
+      testing_notes: null,
+      created_by: null,
+      updated_by: null,
+    })) as DailySupportLog[];
+    return { data: mapped, error: null };
+  }
+
+  // Fallback to legacy daily_operations table
+  const legacy = await fetchLegacyOperations(supabase, startDate, endDate, employeeIds);
+  if (!legacy.error) {
+    return { data: legacy.data.map(toSupportLog), error: null };
+  }
+
+  return { data: [] as DailySupportLog[], error: error ?? legacyError };
+}
+
+async function fetchDailyTestingLogsWithFallback(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  startDate: string,
+  endDate: string | undefined,
+  employeeIds: string[],
+) {
+  let query = supabase.from("daily_testing_logs").select("*").in("employee_id", employeeIds);
+  if (endDate) {
+    query = query.gte("log_date", startDate).lte("log_date", endDate).order("log_date", { ascending: false });
+  } else {
+    query = query.eq("log_date", startDate);
+  }
+
+  const { data, error } = await query;
+  if (!error) {
+    return { data: (data ?? []) as DailyTestingLog[], error: null };
+  }
+
+  // If select("*") failed because critical_bug column is missing, query baseline columns
+  let legacyQuery = supabase
+    .from("daily_testing_logs")
+    .select("id, employee_id, log_date, application_name, module_name, testing_type, status, bugs_found, created_at, updated_at")
+    .in("employee_id", employeeIds);
+
+  if (endDate) {
+    legacyQuery = legacyQuery.gte("log_date", startDate).lte("log_date", endDate).order("log_date", { ascending: false });
+  } else {
+    legacyQuery = legacyQuery.eq("log_date", startDate);
+  }
+
+  const { data: legacyData, error: legacyError } = await legacyQuery;
+  if (!legacyError && legacyData) {
+    const mapped = legacyData.map((row) => ({
+      ...row,
+      platform: "shopify" as const,
+      critical_bug: false,
+      created_by: null,
+      updated_by: null,
+    })) as DailyTestingLog[];
+    return { data: mapped, error: null };
+  }
+
+  // Fallback to legacy daily_operations table
+  const legacy = await fetchLegacyOperations(supabase, startDate, endDate, employeeIds);
+  if (!legacy.error) {
+    return { data: legacy.data.flatMap(toTestingLogs), error: null };
+  }
+
+  return { data: [] as DailyTestingLog[], error: error ?? legacyError };
 }
 
 export function getDashboardDateRange(range: DashboardRange, baseDate = todayIso()) {
@@ -164,7 +268,7 @@ function emptyMonthlyReport(month: string, monthLabel: string, expectedWorkingDa
       totalTestingEntries: 0, totalAppsTested: 0,
       totalBugsFound: 0, totalCriticalBugs: 0,
       averageSupportScore: 0, averageTestingScore: 0,
-      averageDailyScore: 0, averageFinalScore: 0,
+      averageManagerScore: 0, averageFinalScore: 0,
       bestSupportPerformer: null, bestTestingPerformer: null, overallBestPerformer: null,
     } satisfies MonthlyPerformanceSummary,
     error,
@@ -214,30 +318,20 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
 
   if (employeeIds.length > 0) {
     const [sr, tr, ar] = await Promise.all([
-      supabase.from("daily_support_logs").select("*").gte("log_date", reportMonth.startDate).lte("log_date", reportMonth.endDate).in("employee_id", employeeIds),
-      supabase.from("daily_testing_logs").select("*").gte("log_date", reportMonth.startDate).lte("log_date", reportMonth.endDate).in("employee_id", employeeIds),
+      fetchDailySupportLogsWithFallback(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds),
+      fetchDailyTestingLogsWithFallback(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds),
       supabase.from("monthly_performance_adjustments").select("*").eq("report_month", reportMonth.startDate).in("employee_id", employeeIds),
     ]);
 
-    if (sr.error && isSchemaCacheError(sr.error)) {
-      const legacy = await fetchLegacyOperations(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds);
-      if (legacy.error) return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, legacy.error.message);
-      supportLogs = legacy.data.map(toSupportLog);
-    } else if (sr.error) {
+    if (sr.error) {
       return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, sr.error.message);
-    } else {
-      supportLogs = (sr.data ?? []) as DailySupportLog[];
     }
+    supportLogs = sr.data;
 
-    if (tr.error && isSchemaCacheError(tr.error)) {
-      const legacy = await fetchLegacyOperations(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds);
-      if (legacy.error) return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, legacy.error.message);
-      testingLogs = legacy.data.flatMap(toTestingLogs);
-    } else if (tr.error) {
+    if (tr.error) {
       return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, tr.error.message);
-    } else {
-      testingLogs = (tr.data ?? []) as DailyTestingLog[];
     }
+    testingLogs = tr.data;
 
     if (ar.error && !isSchemaCacheError(ar.error)) {
       return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, ar.error.message);
@@ -274,59 +368,55 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
 
     const allDates = new Set<string>([...supportByDate.keys(), ...testingByDate.keys()]);
 
-    // Compute per-day scores
-    const dailySupportScores: number[] = [];
-    const dailyTestingScores: number[] = [];
-    const dailyFinalScores: number[] = [];
+    let sumSupportQuality = 0;
+    let countSupportQuality = 0;
+    
+    let sumTestingQuality = 0;
+    let countTestingQuality = 0;
+
+    let docUpdates = 0;
+    let featureSuggestions = 0;
+    let bugVerifications = 0;
+    let askedForReviews = 0;
+    let gotReviews = 0;
+    let otherContributions = 0;
+
+    const supportEnabled = canManageSupport(role as AppRole);
+    const testingEnabled = canManageTesting(role as AppRole);
 
     for (const date of allDates) {
       const sl = supportByDate.get(date) ?? null;
       const tlogs = testingByDate.get(date) ?? [];
 
-      const hasSupport = canManageSupport(role as AppRole) && sl !== null && sl.attendance_status !== "leave";
-      // Testing entries that are not "No Testing Assigned" count as real testing work
+      const hasSupport = supportEnabled && sl !== null && sl.attendance_status !== "leave";
       const realTestingLogs = tlogs.filter((tl) => tl.application_name && tl.application_name !== "No Testing Assigned");
-      const hasTesting = canManageTesting(role as AppRole) && realTestingLogs.length > 0;
+      const hasTesting = testingEnabled && realTestingLogs.length > 0;
 
       if (hasSupport) {
-        const supportScore = calculateDailySupportScore(
-          sl!.ticket_rating,
-          sl!.chat_rating,
-          sl!.documentation_rating,
-        );
-        dailySupportScores.push(supportScore);
-
-        if (hasTesting) {
-          const taskRatings = realTestingLogs.map((tl) => tl.task_completion ?? 5);
-          const qualityScores = realTestingLogs.map((tl) => testingQualityToScore[tl.testing_quality] ?? 3);
-          const testingScore = calculateDailyTestingScore(taskRatings, qualityScores);
-          dailyTestingScores.push(testingScore);
-          dailyFinalScores.push(calculateDailyFinalScore(supportScore, testingScore, true, true));
-        } else {
-          dailyFinalScores.push(calculateDailyFinalScore(supportScore, 0, true, false));
-        }
-      } else if (hasTesting) {
-        const taskRatings = realTestingLogs.map((tl) => tl.task_completion ?? 5);
-        const qualityScores = realTestingLogs.map((tl) => testingQualityToScore[tl.testing_quality] ?? 3);
-        const testingScore = calculateDailyTestingScore(taskRatings, qualityScores);
-        dailyTestingScores.push(testingScore);
-        dailyFinalScores.push(calculateDailyFinalScore(0, testingScore, false, true));
+        sumSupportQuality += supportQualityToScore[sl.support_quality] ?? 3;
+        countSupportQuality++;
+        
+        if (sl.doc_updated) docUpdates++;
+        if (sl.feature_suggestion) featureSuggestions++;
+        if (sl.bug_verification) bugVerifications++;
+        if (sl.asked_for_review) askedForReviews++;
+        if (sl.got_review) gotReviews++;
+        if (sl.other_contribution) otherContributions++;
+      }
+      
+      if (hasTesting && sl !== null) {
+        sumTestingQuality += testingQualityToScore[sl.testing_quality] ?? 3;
+        countTestingQuality++;
       }
     }
 
-    const avgSupport = dailySupportScores.length > 0
-      ? round(dailySupportScores.reduce((a, b) => a + b, 0) / dailySupportScores.length, 2) : 0;
-    const avgTesting = dailyTestingScores.length > 0
-      ? round(dailyTestingScores.reduce((a, b) => a + b, 0) / dailyTestingScores.length, 2) : 0;
-    const avgDaily = dailyFinalScores.length > 0
-      ? round(dailyFinalScores.reduce((a, b) => a + b, 0) / dailyFinalScores.length, 2) : 0;
+    const avgSupport = countSupportQuality > 0 ? round(sumSupportQuality / countSupportQuality, 2) : 0;
+    const avgTesting = countTestingQuality > 0 ? round(sumTestingQuality / countTestingQuality, 2) : 0;
 
     // Find manager monthly adjustments
     const adj = adjustments.find((a) => a.employee_id === emp.id);
 
-    // Normalize rating values from DB columns with JSON remark parsing fallback for old entries
-    let managerPoints = adj?.manager_points ?? adj?.support_adjustment ?? 0;
-    let behaviorRating = adj?.behavior_rating ?? 3;
+    let initiativeRating = adj?.behavior_rating ?? 3;
     let communicationRating = adj?.communication_rating ?? 3;
     let ownershipRating = adj?.ownership_rating ?? 3;
     let disciplineRating = adj?.discipline_rating ?? 3;
@@ -337,7 +427,7 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
         const parsed = JSON.parse(managerRemarksText);
         if (parsed && typeof parsed === "object" && parsed.ratings) {
           managerRemarksText = parsed.remarks ?? "";
-          behaviorRating = parsed.ratings.behavior ?? parsed.ratings.behaviour ?? behaviorRating;
+          initiativeRating = parsed.ratings.behavior ?? parsed.ratings.behaviour ?? initiativeRating;
           communicationRating = parsed.ratings.communication ?? communicationRating;
           ownershipRating = parsed.ratings.ownership ?? ownershipRating;
           disciplineRating = parsed.ratings.discipline ?? disciplineRating;
@@ -345,59 +435,29 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
       } catch {}
     }
 
-    const adjustmentEffect = managerPoints / 20.0;
-    const finalScore = clamp(round(avgDaily + adjustmentEffect, 2), 1.0, 5.0);
+    const managerScore = round((initiativeRating + communicationRating + ownershipRating + disciplineRating) / 4.0, 2);
+    
+    // Check if employee did any real work this month
+    const didSupport = avgSupport > 0;
+    const didTesting = avgTesting > 0;
+    const finalScore = calculateMonthlyFinalScore(avgSupport, avgTesting, managerScore, didSupport, didTesting);
     const { rating, label } = getStarRating(finalScore);
 
     const appsTested = new Set(empTestingLogs.map((l) => l.application_name).filter((n) => n && n !== "No Testing Assigned"));
-    const supportEnabled = canManageSupport(role as AppRole);
-    const testingEnabled = canManageTesting(role as AppRole);
-
     const supportDaysFiltered = empSupportLogs.filter((l) => l.attendance_status !== "leave");
 
     let workingDaysCount = 0;
     for (const date of allDates) {
       const sl = supportByDate.get(date);
-      if (sl) {
-        if (sl.attendance_status === "leave") {
-          continue;
-        }
-        const isHalfDay =
-          sl.notes?.toLowerCase().includes("half day") ||
-          sl.notes?.toLowerCase().includes("half-day") ||
-          sl.notes?.toLowerCase().includes("half_day") ||
-          sl.daily_remarks?.toLowerCase().includes("half day") ||
-          sl.daily_remarks?.toLowerCase().includes("half-day") ||
-          sl.daily_remarks?.toLowerCase().includes("half_day");
-
-        if (isHalfDay) {
-          workingDaysCount += 0.5;
-        } else {
-          workingDaysCount += 1.0;
-        }
-      } else {
-        if (testingByDate.has(date)) {
-          workingDaysCount += 1.0;
-        }
+      if (sl && sl.attendance_status !== "leave") {
+        workingDaysCount += 1.0;
+      } else if (!sl && testingByDate.has(date)) {
+        workingDaysCount += 1.0;
       }
     }
 
-    let supportDaysCount = 0;
-    for (const log of supportDaysFiltered) {
-      const isHalfDay =
-        log.notes?.toLowerCase().includes("half day") ||
-        log.notes?.toLowerCase().includes("half-day") ||
-        log.notes?.toLowerCase().includes("half_day") ||
-        log.daily_remarks?.toLowerCase().includes("half day") ||
-        log.daily_remarks?.toLowerCase().includes("half-day") ||
-        log.daily_remarks?.toLowerCase().includes("half_day");
-
-      if (isHalfDay) {
-        supportDaysCount += 0.5;
-      } else {
-        supportDaysCount += 1.0;
-      }
-    }
+    const supportDaysCount = supportDaysFiltered.length;
+    const testingDaysCount = new Set(empTestingLogs.filter((l) => l.application_name && l.application_name !== "No Testing Assigned").map((l) => l.log_date)).size;
 
     return {
       employee_id: emp.id,
@@ -405,10 +465,10 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
       role: role as AppRole,
       workingDays: workingDaysCount,
       supportDays: supportEnabled ? supportDaysCount : 0,
-      testingDays: testingEnabled ? new Set(empTestingLogs.filter((l) => l.application_name && l.application_name !== "No Testing Assigned").map((l) => l.log_date)).size : 0,
+      testingDays: testingEnabled ? testingDaysCount : 0,
       supportScore: supportEnabled ? avgSupport : 0,
       testingScore: testingEnabled ? avgTesting : 0,
-      averageDailyScore: avgDaily,
+      managerScore,
       finalScore,
       starRating: rating,
       ratingLabel: label,
@@ -417,17 +477,18 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
       totalTestingEntries: testingEnabled ? empTestingLogs.filter((l) => l.application_name && l.application_name !== "No Testing Assigned").length : 0,
       appsTested: testingEnabled ? appsTested.size : 0,
       bugsFound: testingEnabled ? empTestingLogs.reduce((s, l) => s + l.bugs_found, 0) : 0,
-      criticalBugsFound: testingEnabled ? empTestingLogs.reduce((s, l) => s + l.critical_bugs_found, 0) : 0,
-      // @deprecated - replaced by managerPoints. Keep for backward compatibility.
-      supportAdjustment: managerPoints,
-      // @deprecated - replaced by normalized rating fields. Keep for backward compatibility.
-      testingAdjustment: 0,
+      criticalBugsFound: testingEnabled ? empTestingLogs.reduce((s, l) => s + (l.critical_bug ? 1 : 0), 0) : 0,
+      docUpdates,
+      featureSuggestions,
+      bugVerifications,
+      askedForReviews,
+      gotReviews,
+      otherContributions,
       managerRemarks: managerRemarksText,
-      behaviorRating,
+      initiativeRating,
       communicationRating,
       ownershipRating,
       disciplineRating,
-      managerPoints,
     };
   });
 
@@ -447,7 +508,7 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
     totalCriticalBugs: rows.reduce((s, r) => s + r.criticalBugsFound, 0),
     averageSupportScore: avg(supportRows.map((r) => r.supportScore)),
     averageTestingScore: avg(testingRows.map((r) => r.testingScore)),
-    averageDailyScore: avg(workRows.map((r) => r.averageDailyScore)),
+    averageManagerScore: avg(workRows.map((r) => r.managerScore)),
     averageFinalScore: avg(workRows.map((r) => r.finalScore)),
     bestSupportPerformer: best("supportScore", supportRows),
     bestTestingPerformer: best("testingScore", testingRows),
@@ -485,29 +546,15 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
 
   if (employeeIds.length > 0) {
     const [sr, tr] = await Promise.all([
-      supabase.from("daily_support_logs").select("*").eq("log_date", date).in("employee_id", employeeIds),
-      supabase.from("daily_testing_logs").select("*").eq("log_date", date).in("employee_id", employeeIds),
+      fetchDailySupportLogsWithFallback(supabase, date, undefined, employeeIds),
+      fetchDailyTestingLogsWithFallback(supabase, date, undefined, employeeIds),
     ]);
 
-    if (sr.error && isSchemaCacheError(sr.error)) {
-      const legacy = await fetchLegacyOperations(supabase, date, undefined, employeeIds);
-      if (legacy.error) return { date, rows: [], error: legacy.error.message };
-      supportLogs = legacy.data.map(toSupportLog);
-    } else if (sr.error) {
-      return { date, rows: [], error: sr.error.message };
-    } else {
-      supportLogs = (sr.data ?? []) as DailySupportLog[];
-    }
+    if (sr.error) return { date, rows: [], error: sr.error.message };
+    supportLogs = sr.data;
 
-    if (tr.error && isSchemaCacheError(tr.error)) {
-      const legacy = await fetchLegacyOperations(supabase, date, undefined, employeeIds);
-      if (legacy.error) return { date, rows: [], error: legacy.error.message };
-      testingLogs = legacy.data.flatMap(toTestingLogs);
-    } else if (tr.error) {
-      return { date, rows: [], error: tr.error.message };
-    } else {
-      testingLogs = (tr.data ?? []) as DailyTestingLog[];
-    }
+    if (tr.error) return { date, rows: [], error: tr.error.message };
+    testingLogs = tr.data;
   }
 
   const supportByEmp = new Map(supportLogs.map((l) => [l.employee_id, l]));
@@ -564,29 +611,15 @@ export async function getDailyOperationsDashboardData(profile: UserProfile, rang
 
   if (employeeIds.length > 0) {
     const [sr, tr] = await Promise.all([
-      supabase.from("daily_support_logs").select("*").gte("log_date", startDate).lte("log_date", endDate).in("employee_id", employeeIds).order("log_date", { ascending: false }),
-      supabase.from("daily_testing_logs").select("*").gte("log_date", startDate).lte("log_date", endDate).in("employee_id", employeeIds).order("log_date", { ascending: false }),
+      fetchDailySupportLogsWithFallback(supabase, startDate, endDate, employeeIds),
+      fetchDailyTestingLogsWithFallback(supabase, startDate, endDate, employeeIds),
     ]);
 
-    if (sr.error && isSchemaCacheError(sr.error)) {
-      const legacy = await fetchLegacyOperations(supabase, startDate, endDate, employeeIds);
-      if (legacy.error) return { range, startDate, endDate, rows: [], error: legacy.error.message };
-      supportLogs = legacy.data.map(toSupportLog);
-    } else if (sr.error) {
-      return { range, startDate, endDate, rows: [], error: sr.error.message };
-    } else {
-      supportLogs = (sr.data ?? []) as DailySupportLog[];
-    }
+    if (sr.error) return { range, startDate, endDate, rows: [], error: sr.error.message };
+    supportLogs = sr.data;
 
-    if (tr.error && isSchemaCacheError(tr.error)) {
-      const legacy = await fetchLegacyOperations(supabase, startDate, endDate, employeeIds);
-      if (legacy.error) return { range, startDate, endDate, rows: [], error: legacy.error.message };
-      testingLogs = legacy.data.flatMap(toTestingLogs);
-    } else if (tr.error) {
-      return { range, startDate, endDate, rows: [], error: tr.error.message };
-    } else {
-      testingLogs = (tr.data ?? []) as DailyTestingLog[];
-    }
+    if (tr.error) return { range, startDate, endDate, rows: [], error: tr.error.message };
+    testingLogs = tr.data;
   }
 
   const latestSupportByEmp = new Map<string, DailySupportLog>();
@@ -661,39 +694,15 @@ export async function getDailyOperationsMonthData(
 
   if (employeeIds.length > 0) {
     const [sr, tr] = await Promise.all([
-      supabase
-        .from("daily_support_logs")
-        .select("*")
-        .gte("log_date", reportMonth.startDate)
-        .lte("log_date", reportMonth.endDate)
-        .in("employee_id", employeeIds),
-      supabase
-        .from("daily_testing_logs")
-        .select("*")
-        .gte("log_date", reportMonth.startDate)
-        .lte("log_date", reportMonth.endDate)
-        .in("employee_id", employeeIds),
+      fetchDailySupportLogsWithFallback(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds),
+      fetchDailyTestingLogsWithFallback(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds),
     ]);
 
-    if (sr.error && isSchemaCacheError(sr.error)) {
-      const legacy = await fetchLegacyOperations(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds);
-      if (legacy.error) return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: legacy.error.message };
-      supportLogs = legacy.data.map(toSupportLog);
-    } else if (sr.error) {
-      return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: sr.error.message };
-    } else {
-      supportLogs = (sr.data ?? []) as DailySupportLog[];
-    }
+    if (sr.error) return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: sr.error.message };
+    supportLogs = sr.data;
 
-    if (tr.error && isSchemaCacheError(tr.error)) {
-      const legacy = await fetchLegacyOperations(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds);
-      if (legacy.error) return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: legacy.error.message };
-      testingLogs = legacy.data.flatMap(toTestingLogs);
-    } else if (tr.error) {
-      return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: tr.error.message };
-    } else {
-      testingLogs = (tr.data ?? []) as DailyTestingLog[];
-    }
+    if (tr.error) return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: tr.error.message };
+    testingLogs = tr.data;
   }
 
   const rows = ((profiles ?? []) as unknown as ProfileRow[]).map((emp) => {
@@ -711,4 +720,84 @@ export async function getDailyOperationsMonthData(
   });
 
   return { month: reportMonth.month, monthLabel: reportMonth.monthLabel, rows, error: null };
+}
+
+export type DashboardTrendData = {
+  date: string;
+  tickets: number;
+  chats: number;
+  testingEntries: number;
+  bugsFound: number;
+  present: number;
+  wfh: number;
+  leave: number;
+};
+
+export async function getDashboardTrendData(profile: UserProfile, days: number = 14) {
+  if (!isSupabaseConfigured()) {
+    return { data: [], error: "Supabase is not configured." };
+  }
+
+  const supabase = await createClient();
+  const isManager = profile.role === "manager";
+
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - days + 1);
+
+  const startIso = startDate.toISOString().split("T")[0];
+  const endIso = endDate.toISOString().split("T")[0];
+
+  const profileQuery = supabase
+    .from("profiles")
+    .select("id")
+    .eq("employment_status", "active");
+
+  const { data: profiles, error: profilesError } = isManager
+    ? await profileQuery.neq("id", profile.id)
+    : await profileQuery.eq("id", profile.id);
+
+  if (profilesError) {
+    return { data: [], error: profilesError.message };
+  }
+
+  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((p) => p.id);
+  
+  if (employeeIds.length === 0) {
+    return { data: [], error: null };
+  }
+
+  let supportLogs: DailySupportLog[] = [];
+  let testingLogs: DailyTestingLog[] = [];
+
+  const [sr, tr] = await Promise.all([
+    fetchDailySupportLogsWithFallback(supabase, startIso, endIso, employeeIds),
+    fetchDailyTestingLogsWithFallback(supabase, startIso, endIso, employeeIds),
+  ]);
+
+  if (!sr.error) supportLogs = sr.data;
+  if (!tr.error) testingLogs = tr.data;
+
+  const dates: string[] = [];
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    dates.push(d.toISOString().split("T")[0]);
+  }
+
+  const trendData: DashboardTrendData[] = dates.map(dateStr => {
+    const sLogs = supportLogs.filter(l => l.log_date === dateStr);
+    const tLogs = testingLogs.filter(l => l.log_date === dateStr);
+    
+    return {
+      date: dateStr,
+      tickets: sLogs.reduce((sum, l) => sum + (l.tickets_handled ?? 0), 0),
+      chats: sLogs.reduce((sum, l) => sum + (l.chats_handled ?? 0), 0),
+      testingEntries: tLogs.length,
+      bugsFound: tLogs.reduce((sum, l) => sum + (l.bugs_found ?? 0), 0),
+      present: sLogs.filter(l => l.attendance_status === "present").length,
+      wfh: sLogs.filter(l => l.attendance_status === "wfh").length,
+      leave: sLogs.filter(l => l.attendance_status === "leave").length,
+    };
+  });
+
+  return { data: trendData, error: null };
 }

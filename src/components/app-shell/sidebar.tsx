@@ -20,7 +20,7 @@ export function Sidebar({ profile }: { profile: UserProfile }) {
   const { startLoading } = useAppLoading();
 
   return (
-    <aside className="hidden w-72 shrink-0 border-r border-border/60 bg-slate-50/40 dark:bg-slate-900/15 backdrop-blur-md px-4 py-6 lg:flex lg:flex-col">
+    <aside className="hidden w-80 shrink-0 border-r border-border/60 bg-slate-50/40 dark:bg-slate-900/15 backdrop-blur-md px-4 py-6 lg:flex lg:flex-col">
       <Link href="/dashboard" className="mb-8 flex items-center gap-3 px-2 transition-all hover:opacity-90">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20">
           <LineChart className="h-5 w-5" />
@@ -48,7 +48,7 @@ export function Sidebar({ profile }: { profile: UserProfile }) {
                   }
                 }}
                 className={cn(
-                  "relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground transition-all duration-300 hover:bg-slate-100 dark:hover:bg-slate-800/40 hover:text-sidebar-foreground hover:translate-x-0.5",
+                  "relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold uppercase tracking-wider text-muted-foreground transition-all duration-300 hover:bg-slate-100 dark:hover:bg-slate-800/40 hover:text-sidebar-foreground hover:translate-x-0.5",
                   active
                     ? "bg-slate-100 dark:bg-slate-800 text-sidebar-foreground border-l-4 border-l-blue-600 dark:border-l-blue-500 shadow-sm"
                     : "border-l-4 border-l-transparent",

@@ -40,6 +40,7 @@ export default async function OperationsPage({
     email: row.email,
     role: row.role,
     avatar_url: row.avatar_url,
+    shift: row.shift,
     supportLogs: row.supportLogs,
     testingLogs: row.testingLogs,
   }));
