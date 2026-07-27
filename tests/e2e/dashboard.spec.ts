@@ -1,6 +1,6 @@
 import { test, expect } from "../fixtures/testFixture";
 
-test.describe("Dashboard Enterprise Manager Console", () => {
+test.describe("MVP Manager Dashboard", () => {
   test.use({ storageState: "tests/.auth/manager.json" });
 
   test.beforeEach(async ({ dashboardPage }) => {
@@ -22,16 +22,11 @@ test.describe("Dashboard Enterprise Manager Console", () => {
     expect(initClass).not.toBe(updatedClass);
   });
 
-  test("should render Requires Attention alert box and Today's Operations metrics", async ({ page }) => {
-    await expect(page.locator("text=Requires Attention")).toBeVisible();
-    await expect(page.locator("text=Today's Operational Output")).toBeVisible();
-    await expect(page.locator("text=Tickets Closed")).toBeVisible();
-    await expect(page.locator("text=Chats Handled")).toBeVisible();
-    await expect(page.locator("text=Testing Entries")).toBeVisible();
-  });
-
-  test("should render Team Activity Feed and Active Testing Overview", async ({ page }) => {
-    await expect(page.locator("text=Team Activity Feed")).toBeVisible();
-    await expect(page.locator("text=Active Testing Overview")).toBeVisible();
+  test("should render 4 MVP summary KPI cards and Today's Daily Reports table", async ({ page }) => {
+    await expect(page.locator("text=Present Employees")).toBeVisible();
+    await expect(page.locator("text=Reports Submitted")).toBeVisible();
+    await expect(page.locator("text=Pending Reports")).toBeVisible();
+    await expect(page.locator("text=Late Reports")).toBeVisible();
+    await expect(page.locator("text=Today's Daily Reports")).toBeVisible();
   });
 });

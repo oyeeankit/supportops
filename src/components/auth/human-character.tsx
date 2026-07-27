@@ -23,6 +23,17 @@ interface HumanCharacterProps {
   formRotation?: [number, number, number];
 }
 
+type AvatarBones = {
+  head: THREE.Object3D | null;
+  spine: THREE.Object3D | null;
+  lArm: THREE.Object3D | null;
+  rArm: THREE.Object3D | null;
+  lForearm: THREE.Object3D | null;
+  rForearm: THREE.Object3D | null;
+  lLeg: THREE.Object3D | null;
+  rLeg: THREE.Object3D | null;
+};
+
 // Render authentic GLB 3D Human Avatar Model with Skeletal Rigging
 function AuthenticGLTFAvatar({ entranceStep }: { entranceStep: EntranceStep }) {
   const { scene } = useGLTF("/models/avatar.glb");
@@ -33,7 +44,7 @@ function AuthenticGLTFAvatar({ entranceStep }: { entranceStep: EntranceStep }) {
   const clonedScene = useMemo(() => scene.clone(true), [scene]);
 
   // Find humanoid skeletal bones dynamically
-  const bones = useMemo(() => {
+  const bones = useMemo<AvatarBones>(() => {
     let head: THREE.Object3D | null = null;
     let spine: THREE.Object3D | null = null;
     let lArm: THREE.Object3D | null = null;
