@@ -1,7 +1,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, FileText, Users, Activity } from "lucide-react";
+import { PlusCircle, FileText, Users, Activity, Filter, Download, ArrowRight } from "lucide-react";
 import type { UserProfile } from "@/lib/auth/roles";
 import type { TeamMemberDailyRow } from "../types";
 import type { DashboardTrendData } from "../queries";
@@ -9,8 +9,9 @@ import type { MonthlyPerformanceSummary, MonthlyPerformanceMetrics } from "../pe
 
 // Components
 import { TodayTeamSummary, TodayWorkSummary } from "./dashboard-summary-cards";
-import { DailyLogProgress, PendingDailyLogs } from "./dashboard-progress";
-import { TeamActivityOverview, ActiveTestingOverview } from "./dashboard-tables";
+import { DailyLogProgress, RequiresAttention } from "./dashboard-progress";
+import { TeamActivityFeed } from "./dashboard-activity-feed";
+import { ActiveTestingOverview } from "./dashboard-tables";
 import { DashboardMonthlySnapshot, SupportContributionSummary, TeamPerformance } from "./dashboard-monthly-snapshot";
 import { DashboardCharts } from "./dashboard-charts";
 
@@ -30,84 +31,99 @@ export function ManagerCommandCenter({
   monthlyRows,
 }: CommandProps) {
   const currentDate = new Date();
-  const dateStr = currentDate.toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const monthStr = currentDate.toLocaleDateString("en-US", { month: 'long', year: 'numeric' });
+  const dateStr = currentDate.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      
-      {/* 1. Welcome Section & Quick Actions */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-8 animate-fade-in max-w-[1600px] mx-auto pb-16">
+      {/* Header & Section 9: Quick Actions */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-border/40 pb-6">
         <div className="space-y-1">
           <h1 className="text-3xl font-black tracking-tight text-foreground">
             Good Morning, {profile.full_name.split(" ")[0]} 👋
           </h1>
-          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-            {dateStr} • {monthStr}
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            {dateStr}
           </p>
         </div>
-        
+
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/operations">
-            <Button variant="default" className="rounded-xl shadow-md">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Daily Log
+            <Button variant="default" className="rounded-xl shadow-md font-bold text-xs cursor-pointer">
+              <PlusCircle className="mr-1.5 h-4 w-4" /> Add Daily Log
             </Button>
           </Link>
-          <Link href="/reports">
-            <Button variant="outline" className="rounded-xl">
-              <FileText className="mr-2 h-4 w-4" /> Reports
+          <Link href="/operations?filter=pending">
+            <Button variant="outline" className="rounded-xl font-bold text-xs border-border/80 cursor-pointer">
+              <Filter className="mr-1.5 h-3.5 w-3.5" /> Pending Logs
             </Button>
           </Link>
           <Link href="/team">
-            <Button variant="outline" className="rounded-xl">
-              <Users className="mr-2 h-4 w-4" /> Team
+            <Button variant="outline" className="rounded-xl font-bold text-xs border-border/80 cursor-pointer">
+              <Users className="mr-1.5 h-3.5 w-3.5" /> Team Management
             </Button>
           </Link>
-          <Link href="/operations">
-            <Button variant="outline" className="rounded-xl">
-              <Activity className="mr-2 h-4 w-4" /> Operations
+          <Link href="/reports">
+            <Button variant="outline" className="rounded-xl font-bold text-xs border-border/80 cursor-pointer">
+              <FileText className="mr-1.5 h-3.5 w-3.5" /> Monthly Reports
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* 2 & 3. Today's Summary Cards */}
-      <div className="space-y-4">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2">Today's Team & Work Summary</h2>
-        <div className="grid gap-4 xl:grid-cols-2">
+      {/* Section 1: Hero Manager Overview & Today's Progress */}
+      <div className="bg-card border border-border/60 rounded-2xl p-6 shadow-sm space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <TodayTeamSummary rows={todayData} />
-          <TodayWorkSummary rows={todayData} />
         </div>
-      </div>
-
-      {/* 4 & 10. Progress and Pending */}
-      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <DailyLogProgress rows={todayData} />
-        <PendingDailyLogs rows={todayData} />
       </div>
 
-      {/* 5 & 6. Activity Tables */}
-      <div className="grid gap-6 xl:grid-cols-2">
-        <TeamActivityOverview rows={todayData} />
+      {/* Section 2: Requires Attention (Action Center) */}
+      <RequiresAttention rows={todayData} />
+
+      {/* Section 3: Today's Operations (Operational KPIs) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+            Today's Operational Output
+          </h2>
+          <Link href="/operations" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+            Open Operations <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+        <TodayWorkSummary rows={todayData} />
+      </div>
+
+      {/* Section 4 & 6: Activity Feed & Active Testing */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TeamActivityFeed rows={todayData} />
         <ActiveTestingOverview rows={todayData} />
       </div>
 
-      {/* 9. Trend Charts */}
+      {/* Section 5 & 7: Team Performance & Contributions */}
       <div className="space-y-4">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2">14-Day Performance Trends</h2>
-        <DashboardCharts data={trendData} />
-      </div>
-
-      {/* 7, 8 & 12. Monthly Snapshot */}
-      <div className="space-y-4 pb-12">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2">Monthly Performance Snapshot</h2>
-        <div className="grid gap-6 xl:grid-cols-[1fr_1.5fr_0.8fr]">
+        <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2">
+          Monthly Performance & Contributions
+        </h2>
+        <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
           <DashboardMonthlySnapshot summary={monthlySummary} rows={monthlyRows} />
-          <SupportContributionSummary rows={monthlyRows} />
           <TeamPerformance summary={monthlySummary} />
         </div>
+        <SupportContributionSummary rows={monthlyRows} />
       </div>
 
+      {/* Section 8: Trends */}
+      <div className="space-y-4">
+        <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2">
+          14-Day Performance Trends
+        </h2>
+        <DashboardCharts data={trendData} />
+      </div>
     </div>
   );
 }
