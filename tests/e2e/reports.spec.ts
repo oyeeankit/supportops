@@ -13,7 +13,7 @@ test.describe("Monthly Performance Reports & Calculations", () => {
     // Assert details panel structure exists
     await expect(reportsPage.modalHeading).toBeVisible();
 
-    await page.click("button:has-text('Close')");
+    await page.keyboard.press("Escape");
     await expect(reportsPage.modalHeading).not.toBeVisible();
   });
 

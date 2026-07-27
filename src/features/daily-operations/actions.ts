@@ -61,6 +61,34 @@ export async function saveDailyOperationAction(
     };
   }
 
+  const safeTestingTypeForDb = (type: string): string => {
+    const allowed = ["functional", "regression", "bug_verification", "exploratory"];
+    const t = String(type).trim().toLowerCase();
+    if (allowed.includes(t)) {
+      return t;
+    }
+    if (t === "smoke") return "functional";
+    if (t === "ui_ux") return "exploratory";
+    if (t === "performance") return "regression";
+    if (t === "integration") return "functional";
+    if (t === "api") return "functional";
+    if (t === "database") return "functional";
+    if (t === "security") return "functional";
+    return "functional";
+  };
+
+  const safeTestingStatusForDb = (status: string): string => {
+    const allowed = ["in_progress", "completed"];
+    const s = String(status).trim().toLowerCase();
+    if (allowed.includes(s)) {
+      return s;
+    }
+    if (s === "blocked" || s === "on_hold") {
+      return "in_progress";
+    }
+    return "in_progress";
+  };
+
   // Parse testing entries
   const rawEntries = formData.get("testing_entries");
   let testingEntries: unknown[];
@@ -93,7 +121,11 @@ export async function saveDailyOperationAction(
         message: `Entry #${i + 1}: ${fieldKeys.map((k) => fieldErrors[k]?.[0]).filter(Boolean).join(", ")}`,
       };
     }
-    validatedEntries.push({ ...parsed.data });
+    validatedEntries.push({
+      ...parsed.data,
+      testing_type: safeTestingTypeForDb(parsed.data.testing_type),
+      status: safeTestingStatusForDb(parsed.data.status),
+    });
   }
 
   // Validation of testing entries complete

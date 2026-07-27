@@ -1,0 +1,305 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: reports.spec.ts >> Monthly Performance Reports & Calculations >> should assert role-based score column visibility matches expected rules
+- Location: tests\e2e\reports.spec.ts:28:7
+
+# Error details
+
+```
+Test timeout of 30000ms exceeded while running "beforeEach" hook.
+```
+
+```
+Tearing down "context" exceeded the test timeout of 30000ms.
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - link "SupportOps Team Operations" [ref=e5] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e7]
+        - generic [ref=e10]:
+          - paragraph [ref=e11]: SupportOps
+          - paragraph [ref=e12]: Team Operations
+      - navigation [ref=e13]:
+        - link "Dashboard" [ref=e14] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e15]
+          - text: Dashboard
+        - link "Team" [ref=e18] [cursor=pointer]:
+          - /url: /team
+          - img [ref=e19]
+          - text: Team
+        - link "Daily Log" [ref=e24] [cursor=pointer]:
+          - /url: /operations
+          - img [ref=e25]
+          - text: Daily Log
+        - link "Reports" [ref=e28] [cursor=pointer]:
+          - /url: /reports
+          - img [ref=e29]
+          - text: Reports
+        - link "Settings" [ref=e32] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e33]
+          - text: Settings
+    - generic [ref=e36]:
+      - banner [ref=e37]:
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - img [ref=e40]
+            - text: Search people, reports, activity...
+          - generic [ref=e43]:
+            - generic [ref=e44]:
+              - paragraph [ref=e45]: Ankit Mane
+              - generic [ref=e46]: Manager
+            - button "Toggle theme" [ref=e47]:
+              - img [ref=e48]
+            - button "Sign out" [ref=e55]
+      - main [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - heading "Monthly Performance Report" [level=1] [ref=e59]
+            - paragraph [ref=e60]: Review monthly support and testing performance, score employees, and export the manager report.
+          - generic [ref=e61]:
+            - generic [ref=e62]:
+              - generic [ref=e63]:
+                - generic [ref=e64]:
+                  - text: Month
+                  - combobox "Month" [ref=e65]:
+                    - option "January"
+                    - option "February"
+                    - option "March"
+                    - option "April"
+                    - option "May"
+                    - option "June"
+                    - option "July" [selected]
+                    - option "August"
+                    - option "September"
+                    - option "October"
+                    - option "November"
+                    - option "December"
+                - generic [ref=e66]:
+                  - text: Year
+                  - combobox "Year" [ref=e67]:
+                    - option "2022"
+                    - option "2023"
+                    - option "2024"
+                    - option "2025"
+                    - option "2026" [selected]
+                    - option "2027"
+                - button "Generate" [ref=e68]
+              - generic [ref=e69]:
+                - button "CSV" [ref=e70]:
+                  - img [ref=e71]
+                  - text: CSV
+                - button "PDF" [ref=e74]:
+                  - img [ref=e75]
+                  - text: PDF
+            - generic [ref=e79]:
+              - generic [ref=e80]:
+                - generic [ref=e82]:
+                  - generic [ref=e83]:
+                    - img "Prathmesh" [ref=e84]
+                    - img [ref=e86]
+                  - generic [ref=e89]:
+                    - generic [ref=e90]: 🏆 Overall Best Performer 🏆
+                    - heading "Congratulations, Prathmesh!" [level=2] [ref=e91]
+                    - paragraph [ref=e92]: Your outstanding performance and dedication this month have earned you the top spot. Keep up the excellent work!
+                - generic [ref=e94]:
+                  - img "Lalit" [ref=e96]
+                  - generic [ref=e97]:
+                    - generic [ref=e98]: ⭐ Best Support
+                    - heading "Lalit" [level=3] [ref=e99]
+              - generic [ref=e100]:
+                - paragraph [ref=e101]:
+                  - img [ref=e102]
+                  - text: Performance Averages
+                - generic [ref=e104]:
+                  - generic [ref=e105]:
+                    - paragraph [ref=e106]: Avg Support
+                    - generic [ref=e107]:
+                      - img [ref=e108]
+                      - generic [ref=e111]: "4.00"
+                  - generic [ref=e112]:
+                    - paragraph [ref=e113]: Avg Testing
+                    - generic [ref=e114]:
+                      - img [ref=e115]
+                      - generic [ref=e118]: "4.00"
+                  - generic [ref=e119]:
+                    - paragraph [ref=e120]: Avg Manager Eval
+                    - generic [ref=e121]:
+                      - img [ref=e122]
+                      - generic [ref=e125]: "4.20"
+                  - generic [ref=e126]:
+                    - paragraph [ref=e127]: Avg Final Score
+                    - generic [ref=e128]:
+                      - img [ref=e129]
+                      - generic [ref=e132]: "4.00"
+              - generic [ref=e133]:
+                - paragraph [ref=e134]:
+                  - img [ref=e135]
+                  - text: Team Operational Output
+                - generic [ref=e137]:
+                  - generic [ref=e139]:
+                    - generic [ref=e140]:
+                      - paragraph [ref=e141]: Team Tickets
+                      - paragraph [ref=e142]: "855"
+                    - img [ref=e144]
+                  - generic [ref=e147]:
+                    - generic [ref=e148]:
+                      - paragraph [ref=e149]: Team Chats
+                      - paragraph [ref=e150]: "169"
+                    - img [ref=e152]
+                  - generic [ref=e155]:
+                    - generic [ref=e156]:
+                      - paragraph [ref=e157]: Testing Tasks
+                      - paragraph [ref=e158]: "36"
+                    - img [ref=e160]
+                  - generic [ref=e163]:
+                    - generic [ref=e164]:
+                      - paragraph [ref=e165]: Bugs Found
+                      - paragraph [ref=e166]: "111"
+                    - img [ref=e168]
+                  - generic [ref=e177]:
+                    - generic [ref=e178]:
+                      - paragraph [ref=e179]: Critical Bugs
+                      - paragraph [ref=e180]: "2"
+                    - img [ref=e182]
+            - generic [ref=e184]:
+              - generic [ref=e185]:
+                - searchbox "Search employee" [ref=e187]
+                - generic [ref=e188]:
+                  - button "Sort by Final" [ref=e189]
+                  - button "Sort by Manager Score" [ref=e190]
+              - table [ref=e193]:
+                - rowgroup [ref=e194]:
+                  - row "Employee Role Working Days Support Days Testing Days Tickets Chats Testing Tasks Testing Quality Support Score Testing Score Manager Score Final Score Rating" [ref=e195]:
+                    - columnheader "Employee" [ref=e196]
+                    - columnheader "Role" [ref=e197]
+                    - columnheader "Working Days" [ref=e198]
+                    - columnheader "Support Days" [ref=e199]
+                    - columnheader "Testing Days" [ref=e200]
+                    - columnheader "Tickets" [ref=e201]
+                    - columnheader "Chats" [ref=e202]
+                    - columnheader "Testing Tasks" [ref=e203]
+                    - columnheader "Testing Quality" [ref=e204]
+                    - columnheader "Support Score" [ref=e205]
+                    - columnheader "Testing Score" [ref=e206]
+                    - columnheader "Manager Score" [ref=e207]
+                    - columnheader "Final Score" [ref=e208]
+                    - columnheader "Rating" [ref=e209]
+                    - columnheader [ref=e210]
+                - rowgroup [ref=e211]:
+                  - row "Prathmesh Support Engineer 14 14 8 112 88 8 ★★★★☆ 3.93 4.13 4.50 4.07 Very Good View" [ref=e212]:
+                    - cell "Prathmesh" [ref=e213]
+                    - cell "Support Engineer" [ref=e214]
+                    - cell "14" [ref=e215]
+                    - cell "14" [ref=e216]
+                    - cell "8" [ref=e217]
+                    - cell "112" [ref=e218]
+                    - cell "88" [ref=e219]
+                    - cell "8" [ref=e220]
+                    - cell "★★★★☆" [ref=e221]
+                    - cell "3.93" [ref=e222]:
+                      - generic [ref=e223]: "3.93"
+                    - cell "4.13" [ref=e224]:
+                      - generic [ref=e225]: "4.13"
+                    - cell "4.50" [ref=e226]:
+                      - generic [ref=e227]: "4.50"
+                    - cell "4.07" [ref=e228]
+                    - cell "Very Good" [ref=e229]
+                    - cell "View" [ref=e230]:
+                      - button "View" [ref=e231]
+                  - row "Lalit Support Engineer 13 12 7 83 24 7 ★★★★☆ 4.00 4.00 4.50 4.05 Very Good View" [ref=e232]:
+                    - cell "Lalit" [ref=e233]
+                    - cell "Support Engineer" [ref=e234]
+                    - cell "13" [ref=e235]
+                    - cell "12" [ref=e236]
+                    - cell "7" [ref=e237]
+                    - cell "83" [ref=e238]
+                    - cell "24" [ref=e239]
+                    - cell "7" [ref=e240]
+                    - cell "★★★★☆" [ref=e241]
+                    - cell "4.00" [ref=e242]:
+                      - generic [ref=e243]: "4.00"
+                    - cell "4.00" [ref=e244]:
+                      - generic [ref=e245]: "4.00"
+                    - cell "4.50" [ref=e246]:
+                      - generic [ref=e247]: "4.50"
+                    - cell "4.05" [ref=e248]
+                    - cell "Very Good" [ref=e249]
+                    - cell "View" [ref=e250]:
+                      - button "View" [ref=e251]
+                  - row "Rupali Support Engineer 8 8 6 600 37 6 ★★★★☆ 4.00 4.00 4.50 4.05 Very Good View" [ref=e252]:
+                    - cell "Rupali" [ref=e253]
+                    - cell "Support Engineer" [ref=e254]
+                    - cell "8" [ref=e255]
+                    - cell "8" [ref=e256]
+                    - cell "6" [ref=e257]
+                    - cell "600" [ref=e258]
+                    - cell "37" [ref=e259]
+                    - cell "6" [ref=e260]
+                    - cell "★★★★☆" [ref=e261]
+                    - cell "4.00" [ref=e262]:
+                      - generic [ref=e263]: "4.00"
+                    - cell "4.00" [ref=e264]:
+                      - generic [ref=e265]: "4.00"
+                    - cell "4.50" [ref=e266]:
+                      - generic [ref=e267]: "4.50"
+                    - cell "4.05" [ref=e268]
+                    - cell "Very Good" [ref=e269]
+                    - cell "View" [ref=e270]:
+                      - button "View" [ref=e271]
+                  - row "Gaurav Support Engineer 15 15 10 60 20 14 ★★★★☆ 3.93 4.00 4.50 4.02 Very Good View" [ref=e272]:
+                    - cell "Gaurav" [ref=e273]
+                    - cell "Support Engineer" [ref=e274]
+                    - cell "15" [ref=e275]
+                    - cell "15" [ref=e276]
+                    - cell "10" [ref=e277]
+                    - cell "60" [ref=e278]
+                    - cell "20" [ref=e279]
+                    - cell "14" [ref=e280]
+                    - cell "★★★★☆" [ref=e281]
+                    - cell "3.93" [ref=e282]:
+                      - generic [ref=e283]: "3.93"
+                    - cell "4.00" [ref=e284]:
+                      - generic [ref=e285]: "4.00"
+                    - cell "4.50" [ref=e286]:
+                      - generic [ref=e287]: "4.50"
+                    - cell "4.02" [ref=e288]
+                    - cell "Very Good" [ref=e289]
+                    - cell "View" [ref=e290]:
+                      - button "View" [ref=e291]
+                  - row "Shivam QA Engineer 2 - 1 - - 1 ★★★★☆ - 4.00 3.00 3.80 Very Good View" [ref=e292]:
+                    - cell "Shivam" [ref=e293]
+                    - cell "QA Engineer" [ref=e294]
+                    - cell "2" [ref=e295]
+                    - cell "-" [ref=e296]
+                    - cell "1" [ref=e297]
+                    - cell "-" [ref=e298]
+                    - cell "-" [ref=e299]
+                    - cell "1" [ref=e300]
+                    - cell "★★★★☆" [ref=e301]
+                    - cell "-" [ref=e302]
+                    - cell "4.00" [ref=e303]:
+                      - generic [ref=e304]: "4.00"
+                    - cell "3.00" [ref=e305]:
+                      - generic [ref=e306]: "3.00"
+                    - cell "3.80" [ref=e307]
+                    - cell "Very Good" [ref=e308]
+                    - cell "View" [ref=e309]:
+                      - button "View" [ref=e310]
+  - button "Open Next.js Dev Tools" [ref=e316] [cursor=pointer]:
+    - img [ref=e317]
+  - alert [ref=e320]
+```

@@ -9,12 +9,12 @@ export class EmployeePage {
   readonly passwordInput = this.page.locator("input[name='password']");
   readonly submitButton = this.page.locator("button[type='submit']");
   readonly searchInput = this.page.locator("input[placeholder*='Search']");
-  readonly employeeRow = (fullName: string) => this.page.locator(`tr:has-text('${fullName}')`);
+  readonly employeeRow = (fullName: string) => this.page.locator(`tr:has-text('${fullName}'), div:has-text('${fullName}')`).first();
 
   constructor(private page: Page) {}
 
   async goto() {
-    await this.page.goto("/employees");
+    await this.page.goto("/team");
   }
 
   async createEmployee(employee: {

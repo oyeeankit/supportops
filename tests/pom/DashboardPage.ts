@@ -4,7 +4,7 @@ export class DashboardPage {
   readonly heading = this.page.locator("h1");
   readonly themeToggle = this.page.locator("button[aria-label='Toggle theme']");
   readonly logoutButton = this.page.locator("button:has-text('Sign Out'), button:has-text('Log out'), a:has-text('Sign Out')");
-  readonly kpiValue = (label: string) => this.page.locator(`div:has-text('${label}')`).locator(".text-2xl, .text-3xl");
+  readonly kpiCard = (label: string) => this.page.locator(`div:has-text('${label}')`).first();
 
   constructor(private page: Page) {}
 

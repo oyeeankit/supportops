@@ -350,6 +350,7 @@ function ModalFormBody({
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 <Field label="Attendance Status" error={errorFor("attendance_status")}>
                   <Select
+                    data-testid="attendance-status-select"
                     value={attendanceStatus}
                     onChange={(e) => setAttendanceStatus(e.target.value as AttendanceStatus)}
                     className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"

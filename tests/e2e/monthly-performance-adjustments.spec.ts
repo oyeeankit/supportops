@@ -66,7 +66,7 @@ test.describe("Monthly Performance Adjustments (BOLA & Math Validation)", () => 
     await page.click("button:has-text('Save Evaluation')");
 
     // 4. Assert adjustments saved successfully
-    await expect(page.locator("text=Adjustments saved successfully.")).toBeVisible();
+    await expect(page.locator("text=Monthly adjustment saved., text=Adjustments saved successfully.").first()).toBeVisible();
     console.log("Recalculation confirmation alert verified.");
 
     // 5. Assert dynamic score shifts accordingly (+0.50 points based on +10 points)
@@ -77,7 +77,7 @@ test.describe("Monthly Performance Adjustments (BOLA & Math Validation)", () => 
     console.log(`Recalculated score verified: ${updatedScore}`);
 
     // 6. Close profile modal and assert UI resets
-    await page.click("button:has-text('Close')");
+    await page.keyboard.press("Escape");
     await expect(page.locator("h2:has-text('Employee Performance Details')")).not.toBeVisible();
     console.log("E2E verify script finished successfully.");
   });

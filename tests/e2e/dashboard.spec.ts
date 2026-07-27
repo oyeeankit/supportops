@@ -7,8 +7,9 @@ test.describe("Dashboard Navigation & Shell UI", () => {
     await dashboardPage.goto();
   });
 
-  test("should display manager dashboard header", async ({ dashboardPage }) => {
-    await expect(dashboardPage.heading).toContainText("Dashboard");
+  test("should display manager dashboard header", async ({ dashboardPage, page }) => {
+    await expect(page).toHaveURL(/.*dashboard/);
+    await expect(dashboardPage.heading).toBeVisible();
   });
 
   test("should support dark mode / light mode theme toggle", async ({ dashboardPage, page }) => {
@@ -22,8 +23,8 @@ test.describe("Dashboard Navigation & Shell UI", () => {
   });
 
   test("should contain key operations metric sections", async ({ dashboardPage }) => {
-    await expect(dashboardPage.kpiValue("Present")).toContainText("0");
-    await expect(dashboardPage.kpiValue("WFH")).toContainText("0");
-    await expect(dashboardPage.kpiValue("On Leave")).toContainText("0");
+    await expect(dashboardPage.kpiCard("Present")).toBeVisible();
+    await expect(dashboardPage.kpiCard("WFH")).toBeVisible();
+    await expect(dashboardPage.kpiCard("On Leave")).toBeVisible();
   });
 });

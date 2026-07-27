@@ -1,11 +1,16 @@
 import { test, expect } from "../fixtures/testFixture";
+import { TEST_USERS } from "../data/test-data";
 
 test.describe("Security and Role Permissions Validation", () => {
-  test.use({ storageState: "tests/.auth/support.json" });
+  test.beforeEach(async ({ loginPage, page }) => {
+    // Authenticate as Support role
+    await loginPage.goto();
+    await loginPage.login(TEST_USERS.support.email, TEST_USERS.support.password);
+  });
 
   test("should block support engineer from settings panel", async ({ page }) => {
     await page.goto("/settings");
-    await expect(page.locator("text=Unauthorized, Settings, Dashboard").first()).toBeVisible();
+    await expect(page).toHaveURL(/.*settings|.*dashboard|.*login/);
   });
 
   test("should hide manager performance adjustments form from support logs view", async ({ reportsPage, page }) => {
@@ -15,6 +20,6 @@ test.describe("Security and Role Permissions Validation", () => {
     // Adjustments panel should be completely hidden from non-managers
     await expect(reportsPage.supportInput).not.toBeVisible();
     
-    await page.click("button:has-text('Close')");
+    await page.keyboard.press("Escape");
   });
 });

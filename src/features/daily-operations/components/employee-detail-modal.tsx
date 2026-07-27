@@ -194,7 +194,7 @@ export function EmployeeDetailModal({ employee, summary, open, onClose, role, se
               <form action={formAction} className="space-y-5">
                 <input type="hidden" name="employee_id" value={employee.employee_id} />
                 <input type="hidden" name="report_month" value={`${selectedMonth}-01`} />
-                <input type="hidden" name="behavior_rating" value={behaviour} />
+                <input type="hidden" name="initiative_rating" value={behaviour} />
                 <input type="hidden" name="communication_rating" value={communication} />
                 <input type="hidden" name="ownership_rating" value={ownership} />
                 <input type="hidden" name="discipline_rating" value={discipline} />
