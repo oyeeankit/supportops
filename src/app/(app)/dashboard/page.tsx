@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { 
   getDailyOperationsPageData, 
@@ -6,26 +5,34 @@ import {
   getDashboardTrendData,
   getMonthlyPerformanceReport
 } from "@/features/daily-operations/queries";
+import { getEmployeeSubmissions } from "@/features/daily-reports/queries";
 import { ManagerCommandCenter } from "@/features/daily-operations/components/manager-command-center";
+import { EmployeeDashboard } from "@/features/daily-reports/components/employee-dashboard";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const { profile } = await requireUser();
-
-  // If not a manager, they should not see this Command Center.
-  // We can redirect them to /operations or a simple employee dashboard.
-  if (profile.role !== "manager") {
-    redirect("/operations");
-  }
-
   const today = todayIso();
-  
-  // Current month string "YYYY-MM"
+
   const d = new Date();
   const currentMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-  // Fetch all necessary data points
+  // Non-manager Team Members (Support & QA Engineers) see their tailored Employee Dashboard
+  if (profile.role !== "manager") {
+    const { submissions } = await getEmployeeSubmissions(profile, currentMonth);
+    return (
+      <div className="p-4 md:p-6 lg:p-8 w-full">
+        <EmployeeDashboard
+          profile={profile}
+          submissions={submissions}
+          todayStr={today}
+        />
+      </div>
+    );
+  }
+
+  // Manager Command Center Overview
   const [todayResponse, trendResponse, monthlyResponse] = await Promise.all([
     getDailyOperationsPageData(profile, today),
     getDashboardTrendData(profile, 14),
@@ -34,12 +41,6 @@ export default async function DashboardPage() {
 
   if (todayResponse.error) {
     return <div className="p-6 text-destructive">Error loading today's data: {todayResponse.error}</div>;
-  }
-  if (trendResponse.error) {
-    return <div className="p-6 text-destructive">Error loading trend data: {trendResponse.error}</div>;
-  }
-  if (monthlyResponse.error) {
-    return <div className="p-6 text-destructive">Error loading monthly metrics: {monthlyResponse.error}</div>;
   }
 
   return (

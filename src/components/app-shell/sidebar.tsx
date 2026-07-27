@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Gauge, LineChart, Settings, SquareActivity, Users, ClipboardCheck, FileCheck2 } from "lucide-react";
+import { FileText, Gauge, Settings, SquareActivity, Users, ClipboardCheck, FileCheck2, Sparkles } from "lucide-react";
 import { useAppLoading } from "@/components/feedback/app-loading";
 import { cn } from "@/lib/utils/cn";
 import type { UserProfile } from "@/lib/auth/roles";
@@ -14,6 +14,7 @@ const navItems = [
   { href: "/team", label: "Team", icon: Users },
   { href: "/operations", label: "Daily Log", icon: SquareActivity },
   { href: "/reports", label: "Reports", icon: FileText },
+  { href: "/landing", label: "Product Landing", icon: Sparkles },
   { href: "/settings", label: "Settings", icon: Settings, managerOnly: true },
 ];
 
