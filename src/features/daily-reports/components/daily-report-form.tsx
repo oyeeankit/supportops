@@ -268,8 +268,8 @@ export function DailyReportForm({
             >
               <option value="present">🟢 Present</option>
               <option value="wfh">🔵 Working From Home (WFH)</option>
+              <option value="half_day">🟠 Half Day</option>
               <option value="leave">🟡 Leave</option>
-              <option value="half_day" disabled>Half Day</option>
             </Select>
           </div>
 

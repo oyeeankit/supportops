@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,24 +10,17 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  PlusCircle,
-  FileText,
-  FileCheck2,
   ArrowRight,
-  Ticket,
-  MessageSquare
+  PlusCircle,
+  FileCheck2,
+  FileText
 } from "lucide-react";
 import type { UserProfile } from "@/lib/auth/roles";
 import type { TeamMemberDailyRow } from "../types";
-import type { DashboardTrendData } from "../queries";
-import type { MonthlyPerformanceSummary, MonthlyPerformanceMetrics } from "../performance";
 
 type CommandProps = {
   profile: UserProfile;
   todayData: TeamMemberDailyRow[];
-  trendData: DashboardTrendData[];
-  monthlySummary: MonthlyPerformanceSummary;
-  monthlyRows: MonthlyPerformanceMetrics[];
 };
 
 export function ManagerCommandCenter({
@@ -40,14 +35,22 @@ export function ManagerCommandCenter({
     day: "numeric",
   });
 
-  // Calculate MVP Summary KPIs
-  const totalEmployees = todayData.length;
-  const presentCount = todayData.filter(
-    (r) => r.supportLog && (r.supportLog.attendance_status === "present" || r.supportLog.attendance_status === "wfh")
+  // Filter out manager profiles (e.g. Ankit Mane) so only team members are tracked
+  const teamRows = todayData.filter((r) => r.role !== "manager");
+
+  // Calculate Team KPIs
+  const totalEmployees = teamRows.length;
+  const submittedCount = teamRows.filter(
+    (r) => !!r.supportLog || (r.testingLogs && r.testingLogs.length > 0)
   ).length;
-  const submittedCount = todayData.filter((r) => !!r.supportLog).length;
-  const pendingCount = todayData.filter((r) => !r.supportLog).length;
-  const lateCount = todayData.filter((r) => r.supportLog && (r.supportLog as any).is_late).length;
+  const pendingCount = totalEmployees - submittedCount;
+  const presentCount = teamRows.filter(
+    (r) =>
+      (r.supportLog &&
+        (r.supportLog.attendance_status === "present" || r.supportLog.attendance_status === "wfh")) ||
+      (r.testingLogs && r.testingLogs.length > 0)
+  ).length;
+  const lateCount = teamRows.filter((r) => r.supportLog && (r.supportLog as any).is_late).length;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12 font-sans">
@@ -143,10 +146,10 @@ export function ManagerCommandCenter({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {todayData.map((row) => {
-                  const hasLog = !!row.supportLog;
-                  const tickets = row.supportLog?.tickets_handled ?? 0;
-                  const chats = row.supportLog?.chats_handled ?? 0;
+                {teamRows.map((row) => {
+                  const hasLog = !!row.supportLog || (row.testingLogs && row.testingLogs.length > 0);
+                  const tickets = row.supportLog ? row.supportLog.tickets_handled : "-";
+                  const chats = row.supportLog ? row.supportLog.chats_handled : "-";
                   const testingCount = row.testingLogs?.length ?? 0;
 
                   return (
@@ -158,48 +161,65 @@ export function ManagerCommandCenter({
                           </div>
                           <div>
                             <p className="font-extrabold text-xs">{row.full_name}</p>
-                            <p className="text-[10px] text-muted-foreground font-medium">{row.role.replace("_", " ")}</p>
+                            <p className="text-[10px] text-muted-foreground font-semibold lowercase">
+                              {row.role.replace("_", " ")}
+                            </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-3.5 font-semibold">
-                        {hasLog ? (
-                          <span className="flex items-center gap-1 text-xs">
-                            <Ticket className="h-3.5 w-3.5 text-indigo-500" /> {tickets}
-                          </span>
+
+                      <td className="px-6 py-3.5 text-xs font-semibold">
+                        {tickets !== "-" ? (
+                          <span className="font-bold text-indigo-600 dark:text-indigo-400">🎫 {tickets}</span>
                         ) : (
-                          "-"
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-3.5 font-semibold">
-                        {hasLog ? (
-                          <span className="flex items-center gap-1 text-xs">
-                            <MessageSquare className="h-3.5 w-3.5 text-pink-500" /> {chats}
-                          </span>
+
+                      <td className="px-6 py-3.5 text-xs font-semibold">
+                        {chats !== "-" ? (
+                          <span className="font-bold text-pink-600 dark:text-pink-400">💬 {chats}</span>
                         ) : (
-                          "-"
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-3.5 text-xs text-muted-foreground font-medium">
-                        {testingCount > 0 ? `${testingCount} Entries` : "-"}
+
+                      <td className="px-6 py-3.5 text-xs font-semibold">
+                        {testingCount > 0 ? (
+                          <span className="px-2 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 font-bold text-[10px]">
+                            {testingCount} Entries
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </td>
+
                       <td className="px-6 py-3.5">
                         {hasLog ? (
-                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px] font-extrabold uppercase">
-                            Submitted
+                          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-bold text-[10px] hover:bg-emerald-100">
+                            SUBMITTED
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 text-[10px] font-extrabold uppercase">
-                            Pending
+                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 font-bold text-[10px]">
+                            PENDING
                           </Badge>
                         )}
                       </td>
+
                       <td className="px-6 py-3.5 text-right">
-                        <Link href={`/operations?employee=${row.employee_id}`}>
-                          <Button variant="ghost" size="sm" className="text-xs font-bold text-primary">
-                            {hasLog ? "View Log" : "Add Log"} <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                          </Button>
-                        </Link>
+                        {hasLog ? (
+                          <Link href={`/operations?employee=${row.employee_id}`}>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs font-bold text-blue-600 hover:text-blue-500">
+                              View Log →
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Link href={`/operations?employee=${row.employee_id}`}>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs font-bold text-amber-600 hover:text-amber-500">
+                              Add Log →
+                            </Button>
+                          </Link>
+                        )}
                       </td>
                     </tr>
                   );
@@ -222,21 +242,21 @@ function MvpCard({
 }: {
   label: string;
   value: string | number;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ElementType;
   color: string;
   bg: string;
 }) {
   return (
     <Card className="rounded-xl border border-border bg-card p-4 shadow-sm">
-      <CardContent className="p-0 flex items-center justify-between">
-        <div>
-          <p className="text-2xl font-black text-foreground">{value}</p>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">{label}</p>
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+          <p className="text-2xl font-black text-foreground tracking-tight">{value}</p>
         </div>
         <div className={`p-2.5 rounded-xl ${bg} ${color}`}>
           <Icon className="h-5 w-5" />
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }

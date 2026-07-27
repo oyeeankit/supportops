@@ -3,75 +3,111 @@ import type { UserProfile } from "@/lib/auth/roles";
 import type { DailyReportSubmission, DailyReportAttachment } from "./types";
 import type { DailySupportLog, DailyTestingLog } from "../daily-operations/types";
 
-export async function getEmployeeSubmissions(
+export async function getDailyReportSubmissionForDate(
   profile: UserProfile,
-  monthFilter?: string
-): Promise<{ submissions: DailyReportSubmission[]; error?: string }> {
+  workDate: string
+): Promise<{ submission: DailyReportSubmission | null; error?: string }> {
   const supabase = await createClient();
 
-  let query = supabase
+  // Try fetching from daily_report_submissions first
+  const { data: subData } = await supabase
     .from("daily_report_submissions")
     .select("*")
     .eq("employee_id", profile.id)
-    .order("work_date", { ascending: false });
+    .eq("work_date", workDate)
+    .maybeSingle();
 
-  if (monthFilter) {
-    query = query.gte("work_date", `${monthFilter}-01`).lte("work_date", `${monthFilter}-31`);
-  }
+  // Fetch support logs
+  const supportRes = await supabase
+    .from("daily_support_logs")
+    .select("*")
+    .eq("employee_id", profile.id)
+    .eq("log_date", workDate)
+    .maybeSingle();
 
-  const { data: subData, error: subErr } = await query;
-  if (subErr) {
-    // Fallback: query daily_support_logs directly
-    let logQuery = supabase
-      .from("daily_support_logs")
-      .select("*")
-      .eq("employee_id", profile.id)
-      .order("log_date", { ascending: false });
+  // Fetch testing logs
+  const testingRes = await supabase
+    .from("daily_testing_logs")
+    .select("*")
+    .eq("employee_id", profile.id)
+    .eq("log_date", workDate);
 
-    if (monthFilter) {
-      logQuery = logQuery.gte("log_date", `${monthFilter}-01`).lte("log_date", `${monthFilter}-31`);
-    }
-
-    const { data: logData } = await logQuery;
-
-    const fallbackSubs: DailyReportSubmission[] = (logData || []).map((log) => ({
-      id: log.id,
-      employee_id: log.employee_id,
-      work_date: log.log_date,
-      shift: "day",
-      status: "submitted",
-      is_late: false,
-      submitted_at: log.created_at,
-      draft_payload: null,
-      notes: log.notes ?? null,
-      created_by: log.created_by,
-      updated_by: log.updated_by,
-      created_at: log.created_at,
-      updated_at: log.updated_at,
-      supportLog: log as DailySupportLog,
-    }));
-
-    return { submissions: fallbackSubs };
-  }
-
-  const workDates = (subData || []).map((s) => s.work_date);
-
-  const [supportRes, testingRes, attachRes] = await Promise.all([
-    supabase
-      .from("daily_support_logs")
-      .select("*")
-      .eq("employee_id", profile.id)
-      .in("log_date", workDates.length > 0 ? workDates : ["1970-01-01"]),
-    supabase
-      .from("daily_testing_logs")
-      .select("*")
-      .eq("employee_id", profile.id)
-      .in("log_date", workDates.length > 0 ? workDates : ["1970-01-01"]),
-    supabase
+  // Fetch attachments
+  let attachments: DailyReportAttachment[] = [];
+  if (subData?.id) {
+    const attachRes = await supabase
       .from("daily_report_attachments")
       .select("*")
-      .eq("employee_id", profile.id),
-  ]);
+      .eq("submission_id", subData.id);
+    attachments = (attachRes.data || []) as DailyReportAttachment[];
+  }
+
+  const supportLog = (supportRes.data as DailySupportLog) ?? null;
+  const testingLogs = (testingRes.data as DailyTestingLog[]) ?? [];
+
+  if (!subData && !supportLog && testingLogs.length === 0) {
+    return { submission: null };
+  }
+
+  const status = subData?.status ?? (supportLog || testingLogs.length > 0 ? "submitted" : "missing");
+
+  return {
+    submission: {
+      id: subData?.id ?? supportLog?.id ?? `sub_${profile.id}_${workDate}`,
+      employee_id: profile.id,
+      work_date: workDate,
+      shift: subData?.shift ?? "day",
+      status,
+      is_late: subData?.is_late ?? false,
+      submitted_at: subData?.submitted_at ?? supportLog?.created_at ?? new Date().toISOString(),
+      draft_payload: subData?.draft_payload ?? null,
+      notes: subData?.notes ?? supportLog?.notes ?? null,
+      created_by: profile.id,
+      updated_by: profile.id,
+      created_at: subData?.created_at ?? supportLog?.created_at ?? new Date().toISOString(),
+      updated_at: subData?.updated_at ?? supportLog?.updated_at ?? new Date().toISOString(),
+      employee_name: profile.full_name,
+      employee_email: profile.email,
+      avatar_url: profile.avatar_url,
+      role: profile.role,
+      supportLog,
+      testingLogs,
+      attachments,
+    },
+  };
+}
+
+export async function getEmployeeSubmissionsHistory(
+  profile: UserProfile,
+  limit = 30
+): Promise<{ submissions: DailyReportSubmission[]; error?: string }> {
+  const supabase = await createClient();
+
+  const { data: subData } = await supabase
+    .from("daily_report_submissions")
+    .select("*")
+    .eq("employee_id", profile.id)
+    .order("work_date", { ascending: false })
+    .limit(limit);
+
+  const supportRes = await supabase
+    .from("daily_support_logs")
+    .select("*")
+    .eq("employee_id", profile.id)
+    .order("log_date", { ascending: false })
+    .limit(limit);
+
+  const testingRes = await supabase
+    .from("daily_testing_logs")
+    .select("*")
+    .eq("employee_id", profile.id)
+    .order("log_date", { ascending: false })
+    .limit(limit * 3);
+
+  const attachRes = await supabase
+    .from("daily_report_attachments")
+    .select("*")
+    .eq("uploaded_by", profile.id);
 
   const supportMap = new Map<string, DailySupportLog>();
   (supportRes.data || []).forEach((log) => supportMap.set(log.log_date, log as DailySupportLog));
@@ -107,16 +143,12 @@ export async function getEmployeeDraft(
   try {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("daily_report_submissions")
       .select("draft_payload, status")
       .eq("employee_id", profile.id)
       .eq("work_date", workDate)
       .maybeSingle();
-
-    if (error) {
-      return { draft: null };
-    }
 
     return {
       draft: data?.draft_payload ?? null,
@@ -142,79 +174,87 @@ export async function getManagerSubmissions(
     return { submissions: [], error: "Unauthorized access." };
   }
 
-  let query = supabase.from("daily_report_submissions").select("*").order("work_date", { ascending: false });
+  // 1. Fetch support logs and testing logs to construct comprehensive submission list
+  let supportQuery = supabase.from("daily_support_logs").select("*").order("log_date", { ascending: false });
+  let testingQuery = supabase.from("daily_testing_logs").select("*").order("log_date", { ascending: false });
 
-  if (filters?.date) query = query.eq("work_date", filters.date);
-  if (filters?.shift && filters.shift !== "all") query = query.eq("shift", filters.shift);
-  if (filters?.status && filters.status !== "all") query = query.eq("status", filters.status);
-  if (filters?.employeeId && filters.employeeId !== "all") query = query.eq("employee_id", filters.employeeId);
-
-  const { data: subData, error: subErr } = await query;
-
-  if (subErr) {
-    // Fallback: Query daily_support_logs & profiles
-    let logQuery = supabase.from("daily_support_logs").select("*").order("log_date", { ascending: false });
-    if (filters?.date) logQuery = logQuery.eq("log_date", filters.date);
-    if (filters?.employeeId && filters.employeeId !== "all") logQuery = logQuery.eq("employee_id", filters.employeeId);
-
-    const { data: logs } = await logQuery;
-    const empIds = Array.from(new Set((logs || []).map((l) => l.employee_id)));
-
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name, email, role, avatar_url")
-      .in("id", empIds.length > 0 ? empIds : ["00000000-0000-0000-0000-000000000000"]);
-
-    const profileMap = new Map();
-    (profiles || []).forEach((p) => profileMap.set(p.id, p));
-
-    const fallbackSubs: DailyReportSubmission[] = (logs || []).map((log) => {
-      const emp = profileMap.get(log.employee_id);
-      return {
-        id: log.id,
-        employee_id: log.employee_id,
-        work_date: log.log_date,
-        shift: "day",
-        status: "submitted",
-        is_late: false,
-        submitted_at: log.created_at,
-        draft_payload: null,
-        notes: log.notes ?? null,
-        created_by: log.created_by,
-        updated_by: log.updated_by,
-        created_at: log.created_at,
-        updated_at: log.updated_at,
-        employee_name: emp?.full_name ?? "Unknown",
-        employee_email: emp?.email ?? "",
-        avatar_url: emp?.avatar_url ?? null,
-        role: emp?.role ?? "support_engineer",
-        supportLog: log as DailySupportLog,
-      };
-    });
-
-    return { submissions: fallbackSubs };
+  if (filters?.date) {
+    supportQuery = supportQuery.eq("log_date", filters.date);
+    testingQuery = testingQuery.eq("log_date", filters.date);
+  }
+  if (filters?.employeeId && filters.employeeId !== "all") {
+    supportQuery = supportQuery.eq("employee_id", filters.employeeId);
+    testingQuery = testingQuery.eq("employee_id", filters.employeeId);
   }
 
-  // Join profiles
-  const empIds = Array.from(new Set((subData || []).map((s) => s.employee_id)));
+  const [supportRes, testingRes] = await Promise.all([supportQuery, testingQuery]);
+  const supportLogs = (supportRes.data || []) as DailySupportLog[];
+  const testingLogs = (testingRes.data || []) as DailyTestingLog[];
+
+  // Collect all unique employee IDs
+  const empIds = Array.from(
+    new Set([...supportLogs.map((l) => l.employee_id), ...testingLogs.map((t) => t.employee_id)])
+  );
+
+  if (empIds.length === 0) {
+    return { submissions: [] };
+  }
+
+  // 2. Fetch employee profiles (excluding managers)
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name, email, role, avatar_url")
-    .in("id", empIds.length > 0 ? empIds : ["00000000-0000-0000-0000-000000000000"]);
+    .select("id, full_name, email, avatar_url, roles(name)")
+    .in("id", empIds)
+    .neq("id", profile.id); // Exclude manager profile
 
   const profileMap = new Map();
-  (profiles || []).forEach((p) => profileMap.set(p.id, p));
-
-  const submissions: DailyReportSubmission[] = (subData || []).map((sub) => {
-    const emp = profileMap.get(sub.employee_id);
-    return {
-      ...sub,
-      employee_name: emp?.full_name ?? "Unknown",
-      employee_email: emp?.email ?? "",
-      avatar_url: emp?.avatar_url ?? null,
-      role: emp?.role ?? "support_engineer",
-    };
+  (profiles || []).forEach((p) => {
+    const roleName = Array.isArray(p.roles) ? p.roles[0]?.name : (p.roles as any)?.name ?? "support_engineer";
+    profileMap.set(p.id, { ...p, role: roleName });
   });
+
+  // Group logs by (employee_id, date)
+  const groupedKeys = new Set<string>();
+  supportLogs.forEach((l) => groupedKeys.add(`${l.employee_id}_${l.log_date}`));
+  testingLogs.forEach((t) => groupedKeys.add(`${t.employee_id}_${t.log_date}`));
+
+  const submissions: DailyReportSubmission[] = [];
+
+  for (const key of Array.from(groupedKeys)) {
+    const [empId, workDate] = key.split("_");
+    const emp = profileMap.get(empId);
+
+    // Skip if employee profile not found (or if it's manager)
+    if (!emp) continue;
+
+    const empSupportLog = supportLogs.find((l) => l.employee_id === empId && l.log_date === workDate) ?? null;
+    const empTestingLogs = testingLogs.filter((t) => t.employee_id === empId && t.log_date === workDate);
+
+    submissions.push({
+      id: empSupportLog?.id ?? `sub_${empId}_${workDate}`,
+      employee_id: empId,
+      work_date: workDate,
+      shift: "day",
+      status: "submitted",
+      is_late: false,
+      submitted_at: empSupportLog?.created_at ?? new Date().toISOString(),
+      draft_payload: null,
+      notes: empSupportLog?.notes ?? null,
+      created_by: empId,
+      updated_by: empId,
+      created_at: empSupportLog?.created_at ?? new Date().toISOString(),
+      updated_at: empSupportLog?.updated_at ?? new Date().toISOString(),
+      employee_name: emp.full_name,
+      employee_email: emp.email,
+      avatar_url: emp.avatar_url,
+      role: emp.role,
+      supportLog: empSupportLog,
+      testingLogs: empTestingLogs,
+      attachments: [],
+    });
+  }
 
   return { submissions };
 }
+
+export { getEmployeeSubmissionsHistory as getEmployeeSubmissions };

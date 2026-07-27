@@ -1,13 +1,14 @@
 import type { AppRole } from "@/lib/auth/roles";
 import type { Shift } from "@/features/employees/types";
 
-export const attendanceStatuses = ["present", "wfh", "leave"] as const;
+export const attendanceStatuses = ["present", "wfh", "half_day", "leave"] as const;
 
 export type AttendanceStatus = (typeof attendanceStatuses)[number];
 
 export const attendanceStatusLabels: Record<AttendanceStatus, string> = {
   present: "Present",
   wfh: "WFH",
+  half_day: "Half Day",
   leave: "Leave",
 };
 
@@ -39,21 +40,21 @@ export type SupportQuality = (typeof supportQualities)[number];
 // Platform definitions and app catalogue
 // ---------------------------------------------------------------------------
 export const testingPlatforms = [
-  "support_only",
   "shopify",
+  "ecommerce",
   "wix",
-  "bigcommerce",
-  "woocommerce",
+  "csv",
+  "other",
 ] as const;
 
-export type TestingPlatform = (typeof testingPlatforms)[number];
+export type TestingPlatform = string;
 
-export const platformLabels: Record<TestingPlatform, string> = {
-  support_only: "Support Only",
-  shopify: "Shopify Apps",
-  wix: "Wix Apps",
-  bigcommerce: "BigCommerce Apps",
-  woocommerce: "WooCommerce Apps",
+export const platformLabels: Record<string, string> = {
+  shopify: "Shopify",
+  ecommerce: "E commerce",
+  wix: "Wix",
+  csv: "CSV",
+  other: "Other / Custom",
 };
 
 // Apps grouped by platform, sorted alphabetically within each group.

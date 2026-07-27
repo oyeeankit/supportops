@@ -2,19 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Gauge, Settings, SquareActivity, Users, ClipboardCheck, FileCheck2, Sparkles } from "lucide-react";
+import { FileText, Gauge, Settings, SquareActivity, Users, ClipboardCheck, FileCheck2 } from "lucide-react";
 import { useAppLoading } from "@/components/feedback/app-loading";
 import { cn } from "@/lib/utils/cn";
 import type { UserProfile } from "@/lib/auth/roles";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
-  { href: "/my-reports", label: "My Reports", icon: ClipboardCheck },
+  { href: "/my-reports", label: "My Reports", icon: ClipboardCheck, employeeOnly: true },
   { href: "/operations/submissions", label: "Submissions", icon: FileCheck2, managerOnly: true },
   { href: "/team", label: "Team", icon: Users },
   { href: "/operations", label: "Daily Log", icon: SquareActivity },
   { href: "/reports", label: "Reports", icon: FileText },
-  { href: "/landing", label: "Product Landing", icon: Sparkles },
   { href: "/settings", label: "Settings", icon: Settings, managerOnly: true },
 ];
 
@@ -36,7 +35,11 @@ export function Sidebar({ profile }: { profile: UserProfile }) {
 
       <nav className="space-y-1">
         {navItems
-          .filter((item) => !item.managerOnly || profile.role === "manager")
+          .filter((item) => {
+            if (item.managerOnly && profile.role !== "manager") return false;
+            if (item.employeeOnly && profile.role === "manager") return false;
+            return true;
+          })
           .map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(`${item.href}`));

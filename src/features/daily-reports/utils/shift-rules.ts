@@ -1,6 +1,31 @@
 import type { Shift } from "@/lib/auth/roles";
 
 /**
+ * Validates that workDate is strictly Today or Yesterday (maximum 1 day backdated).
+ */
+export function validateBackdatedLimit(workDate: string): { allowed: boolean; reason?: string } {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const todayStr = today.toISOString().split("T")[0];
+  const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+  if (workDate > todayStr) {
+    return { allowed: false, reason: "Future dates are not allowed for daily report submissions." };
+  }
+
+  if (workDate < yesterdayStr) {
+    return {
+      allowed: false,
+      reason: `Backdated reports are restricted to a maximum of 1 previous day (${yesterdayStr}).`,
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
  * Returns allowed work dates (YYYY-MM-DD) for a given shift.
  * Default allowed dates: Today and Yesterday.
  */

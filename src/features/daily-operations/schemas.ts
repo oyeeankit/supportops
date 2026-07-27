@@ -49,46 +49,24 @@ export const dailySupportLogSchema = z.object({
 // ---------------------------------------------------------------------------
 export const testingEntrySchema = z
   .object({
-    platform: z.enum(testingPlatforms).optional().default("shopify"),
+    platform: z.string().optional().default("shopify"),
     application_name: z.string().trim().max(120, "App name must be 120 characters or less."),
     module_name: z.string().trim().max(120, "Module name must be 120 characters or less.").optional().default(""),
-    testing_type: z.enum(testingTypes, "Select a valid testing type."),
-    status: z.enum(testingStatuses, "Select a valid testing status."),
-    bugs_found: z.coerce.number().int().min(0, "Bugs cannot be negative.").max(9999, "Bugs look too high."),
+    testing_type: z.enum(testingTypes, "Select a valid testing type.").optional().default("functional"),
+    status: z.enum(testingStatuses, "Select a valid testing status.").optional().default("completed"),
+    bugs_found: z.coerce.number().int().min(0, "Bugs cannot be negative.").max(9999, "Bugs look too high.").default(0),
     critical_bug: z.boolean().default(false),
-  })
-  .superRefine((data, ctx) => {
-    if (!isNoTestingAssigned(data.application_name)) {
-      if (!data.module_name || data.module_name.trim() === "") {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["module_name"],
-          message: "Module / feature tested is required when an app is selected.",
-        });
-      }
-    }
   });
 
 export const testingEntryClientSchema = z
   .object({
-    platform: z.enum(testingPlatforms),
+    platform: z.string().default("shopify"),
     application_name: z.string().trim().min(1, "App name is required.").max(120, "App name must be 120 characters or less."),
     module_name: z.string().trim().max(120, "Module name must be 120 characters or less."),
-    testing_type: z.enum(testingTypes, "Select a valid testing type."),
-    status: z.enum(testingStatuses, "Select a valid testing status."),
-    bugs_found: z.coerce.number().int().min(0, "Bugs cannot be negative.").max(9999, "Bugs look too high."),
+    testing_type: z.enum(testingTypes, "Select a valid testing type.").default("functional"),
+    status: z.enum(testingStatuses, "Select a valid testing status.").default("completed"),
+    bugs_found: z.coerce.number().int().min(0, "Bugs cannot be negative.").max(9999, "Bugs look too high.").default(0),
     critical_bug: z.boolean().default(false),
-  })
-  .superRefine((data, ctx) => {
-    if (!isNoTestingAssigned(data.application_name)) {
-      if (!data.module_name || data.module_name.trim() === "") {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["module_name"],
-          message: "Module / feature tested is required when an app is selected.",
-        });
-      }
-    }
   });
 
 export const monthlyPerformanceAdjustmentSchema = z.object({

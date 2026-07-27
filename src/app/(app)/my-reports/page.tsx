@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { getEmployeeSubmissions } from "@/features/daily-reports/queries";
 import { MyReportsList } from "@/features/daily-reports/components/my-reports-list";
@@ -10,6 +11,12 @@ export default async function MyReportsPage({
   searchParams?: Promise<{ month?: string }>;
 }) {
   const { profile } = await requireUser();
+
+  // Managers do not submit personal daily reports; redirect to Submissions console
+  if (profile.role === "manager") {
+    redirect("/operations/submissions");
+  }
+
   const params = await searchParams;
   const currentMonth = params?.month || new Date().toISOString().substring(0, 7);
 

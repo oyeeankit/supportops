@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, ExternalLink } from "lucide-react";
+import { Search } from "lucide-react";
 import { signOutAction } from "@/features/auth/actions";
 import { roleLabels, type UserProfile } from "@/lib/auth/roles";
 import { Badge } from "@/components/ui/badge";
@@ -17,12 +17,6 @@ export function Header({ profile }: { profile: UserProfile }) {
         </div>
         <div className="flex flex-1 items-center justify-between gap-3 md:flex-none">
           <ShareTeamModal />
-          <Link href="/landing" target="_blank">
-            <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold gap-1 cursor-pointer">
-              <span>Landing Page</span>
-              <ExternalLink className="h-3 w-3" />
-            </Button>
-          </Link>
           <div className="min-w-0 text-right">
             <p className="truncate text-sm font-bold text-foreground">{profile.full_name}</p>
             <Badge variant="secondary" className="mt-0.5 rounded-full px-2 py-0 text-[10px] font-bold uppercase tracking-wider">
