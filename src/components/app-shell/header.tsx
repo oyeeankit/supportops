@@ -6,8 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
 import { ShareTeamModal } from "./share-team-modal";
+import { ResetDataButton } from "./reset-data-button";
 
 export function Header({ profile }: { profile: UserProfile }) {
+  const isManager = profile.role === "manager";
+
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background">
       <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
@@ -17,6 +20,7 @@ export function Header({ profile }: { profile: UserProfile }) {
         </div>
         <div className="flex flex-1 items-center justify-between gap-3 md:flex-none">
           <ShareTeamModal />
+          {isManager && <ResetDataButton />}
           <div className="min-w-0 text-right">
             <p className="truncate text-sm font-bold text-foreground">{profile.full_name}</p>
             <Badge variant="secondary" className="mt-0.5 rounded-full px-2 py-0 text-[10px] font-bold uppercase tracking-wider">

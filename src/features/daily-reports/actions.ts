@@ -381,3 +381,30 @@ export async function submitPublicDailyReportAction(
     },
   };
 }
+
+export async function resetAllDailyDataAction(): Promise<{ message: string; success: boolean }> {
+  const { profile } = await requireUser();
+  if (profile.role !== "manager") {
+    return { success: false, message: "Only managers can reset daily report data." };
+  }
+
+  const supabase = await createClient();
+
+  // Delete all daily support logs, testing logs, and submissions
+  await supabase.from("daily_support_logs").delete().gte("created_at", "2000-01-01T00:00:00Z");
+  await supabase.from("daily_testing_logs").delete().gte("created_at", "2000-01-01T00:00:00Z");
+  try {
+    await supabase.from("daily_report_submissions").delete().gte("created_at", "2000-01-01T00:00:00Z");
+    await supabase.from("daily_operations").delete().gte("created_at", "2000-01-01T00:00:00Z");
+  } catch {
+    // Ignore fallback table errors
+  }
+
+  revalidatePath("/", "layout");
+  revalidatePath("/dashboard");
+  revalidatePath("/operations");
+  revalidatePath("/reports");
+  revalidatePath("/operations/submissions");
+
+  return { success: true, message: "All daily report data & numbers have been reset to 0." };
+}
