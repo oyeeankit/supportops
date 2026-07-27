@@ -7,10 +7,11 @@ export const dynamic = "force-dynamic";
 export default async function NewDailyReportPage({
   searchParams,
 }: {
-  searchParams: { date?: string };
+  searchParams?: Promise<{ date?: string }>;
 }) {
   const { profile } = await requireUser();
-  const targetDate = searchParams.date || new Date().toISOString().split("T")[0];
+  const params = await searchParams;
+  const targetDate = params?.date || new Date().toISOString().split("T")[0];
 
   const { draft } = await getEmployeeDraft(profile, targetDate);
 

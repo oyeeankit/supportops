@@ -7,10 +7,11 @@ export const dynamic = "force-dynamic";
 export default async function MyReportsPage({
   searchParams,
 }: {
-  searchParams: { month?: string };
+  searchParams?: Promise<{ month?: string }>;
 }) {
   const { profile } = await requireUser();
-  const currentMonth = searchParams.month || new Date().toISOString().substring(0, 7);
+  const params = await searchParams;
+  const currentMonth = params?.month || new Date().toISOString().substring(0, 7);
 
   const { submissions, error } = await getEmployeeSubmissions(profile, currentMonth);
 

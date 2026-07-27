@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function ManagerSubmissionsPage({
   searchParams,
 }: {
-  searchParams: { date?: string; shift?: string; status?: string; employee?: string };
+  searchParams?: Promise<{ date?: string; shift?: string; status?: string; employee?: string }>;
 }) {
   const { profile } = await requireUser();
 
@@ -16,13 +16,14 @@ export default async function ManagerSubmissionsPage({
     redirect("/my-reports");
   }
 
-  const todayStr = searchParams.date || new Date().toISOString().split("T")[0];
+  const params = await searchParams;
+  const todayStr = params?.date || new Date().toISOString().split("T")[0];
 
   const { submissions, error } = await getManagerSubmissions(profile, {
-    date: searchParams.date,
-    shift: searchParams.shift,
-    status: searchParams.status,
-    employeeId: searchParams.employee,
+    date: params?.date,
+    shift: params?.shift,
+    status: params?.status,
+    employeeId: params?.employee,
   });
 
   if (error) {
