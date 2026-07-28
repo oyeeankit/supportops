@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireUser } from "@/lib/auth/session";
 import { checkShiftReportingWindow, validateBackdatedLimit } from "./utils/shift-rules";
 import type { Shift, AttendanceStatus } from "../daily-operations/types";
@@ -248,7 +249,12 @@ export async function submitPublicDailyReportAction(
     return { message: dateCheck.reason };
   }
 
-  const supabase = await createClient();
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch {
+    supabase = await createClient();
+  }
 
   // 2. Find or provision profile for this email (case-insensitive)
   let { data: profile } = await supabase
@@ -256,6 +262,15 @@ export async function submitPublicDailyReportAction(
     .select("id, full_name, email, role_id")
     .ilike("email", email)
     .maybeSingle();
+
+  if (!profile) {
+    const { data: exactProfile } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, role_id")
+      .eq("email", email)
+      .maybeSingle();
+    profile = exactProfile;
+  }
 
   if (!profile) {
     const isQA = email.toLowerCase().includes("shivam") || email.toLowerCase().includes("qa");
@@ -267,26 +282,48 @@ export async function submitPublicDailyReportAction(
       roleData = fallbackRole;
     }
 
-    if (roleData) {
-      const nameParts = email.split("@")[0].split(/[._-]/);
-      const fullName = nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ") || email;
-      const { data: newProfile } = await supabase
+    const nameParts = email.split("@")[0].split(/[._-]/);
+    const fullName = nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ") || email;
+    
+    const insertPayload: Record<string, any> = {
+      full_name: fullName,
+      email: email.toLowerCase().trim(),
+      role: roleName,
+      employment_status: "active",
+      shift: "day",
+    };
+    if (roleData?.id) {
+      insertPayload.role_id = roleData.id;
+    }
+
+    const { data: newProfile, error: insertError } = await supabase
+      .from("profiles")
+      .insert(insertPayload)
+      .select("id, full_name, email, role_id")
+      .maybeSingle();
+
+    if (newProfile) {
+      profile = newProfile;
+    } else {
+      if (insertError) {
+        console.error("[submitPublicDailyReportAction] Auto-provision error:", insertError.message);
+      }
+      // Retry minimal insert without role_id if constraint failed
+      const { data: retryProfile } = await supabase
         .from("profiles")
         .insert({
           full_name: fullName,
           email: email.toLowerCase().trim(),
-          role_id: roleData.id,
           employment_status: "active",
         })
         .select("id, full_name, email, role_id")
         .maybeSingle();
-
-      profile = newProfile;
+      profile = retryProfile;
     }
   }
 
   if (!profile) {
-    return { message: "Could not record profile for this email. Please check your email address." };
+    return { message: "Could not record profile for this email. Please check your email address or ensure database migration has been run." };
   }
 
   // Check if an existing report already exists for this (employee_id, workDate)
