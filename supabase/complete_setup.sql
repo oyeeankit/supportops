@@ -56,7 +56,7 @@ from (
   values
     ('Ankit Mane', 'mane@thaliatechnologies.com', 'manager', 'day', 'active'),
     ('Lalit', 'lalit@thaliatechnologies.com', 'support_engineer', 'day', 'active'),
-    ('Gaurav', 'gaurav@thaliatechnologies.com', 'support_engineer', 'morning', 'active'),
+    ('Gaurav', 'gauravsalvi@thaliatechnologies.com', 'support_engineer', 'morning', 'active'),
     ('Rupali', 'rupali@thaliatechnologies.com', 'support_engineer', 'evening', 'active'),
     ('Prathmesh', 'prathmesh@thaliatechnologies.com', 'support_engineer', 'day', 'active'),
     ('Shivam', 'shivam@thaliatechnologies.com', 'qa_engineer', 'day', 'active')

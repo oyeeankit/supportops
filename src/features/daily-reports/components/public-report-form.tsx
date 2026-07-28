@@ -45,7 +45,7 @@ function SubmitButton({ isQARole, hasEmail }: { isQARole: boolean; hasEmail: boo
 // Preset Team Members (Manager excluded)
 const PRESET_TEAM_EMAILS = [
   { name: "Lalit (Support Engineer)", email: "lalit@thaliatechnologies.com" },
-  { name: "Gaurav (Support Engineer)", email: "gaurav@thaliatechnologies.com" },
+  { name: "Gaurav (Support Engineer)", email: "gauravsalvi@thaliatechnologies.com" },
   { name: "Rupali (Support Engineer)", email: "rupali@thaliatechnologies.com" },
   { name: "Prathmesh (Support Engineer)", email: "prathmesh@thaliatechnologies.com" },
   { name: "Shivam (QA Engineer)", email: "shivam@thaliatechnologies.com" },
