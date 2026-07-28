@@ -173,7 +173,7 @@ async function fetchDailySupportLogsWithFallback(
   // Fallback to legacy daily_operations table
   const legacy = await fetchLegacyOperations(supabase, startDate, endDate, employeeIds);
   if (!legacy.error) {
-    return { data: legacy.data.map(toSupportLog), error: null };
+    return { data: (legacy.data || []).map(toSupportLog), error: null };
   }
 
   // If table is missing from schema cache, return empty array without error banner
@@ -229,7 +229,7 @@ async function fetchDailyTestingLogsWithFallback(
   // Fallback to legacy daily_operations table
   const legacy = await fetchLegacyOperations(supabase, startDate, endDate, employeeIds);
   if (!legacy.error) {
-    return { data: legacy.data.flatMap(toTestingLogs), error: null };
+    return { data: (legacy.data || []).flatMap(toTestingLogs), error: null };
   }
 
   // If table is missing from schema cache, return empty array without error banner
@@ -542,12 +542,12 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
 
   const profileQuery = supabase
     .from("profiles")
-    .select("id, full_name, email, shift, avatar_url, roles(name)")
+    .select("id, full_name, email, shift, avatar_url, role, roles(name)")
     .eq("employment_status", "active")
     .order("full_name");
 
   const { data: profiles, error: profilesError } = isManager
-    ? await profileQuery.neq("id", profile.id)
+    ? await profileQuery
     : await profileQuery.eq("id", profile.id);
 
   if (profilesError) {
@@ -690,12 +690,12 @@ export async function getDailyOperationsMonthData(
 
   const profileQuery = supabase
     .from("profiles")
-    .select("id, full_name, email, shift, avatar_url, roles(name)")
+    .select("id, full_name, email, shift, avatar_url, role, roles(name)")
     .eq("employment_status", "active")
     .order("full_name");
 
   const { data: profiles, error: profilesError } = isManager
-    ? await profileQuery.neq("id", profile.id)
+    ? await profileQuery
     : await profileQuery.eq("id", profile.id);
 
   if (profilesError) {

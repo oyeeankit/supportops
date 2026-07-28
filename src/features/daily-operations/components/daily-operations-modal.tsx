@@ -70,18 +70,19 @@ function computeSummary(
   tickets: number,
   chats: number,
 ): DailySummaryStats {
-  const uniqueApps = new Set(entries.map((e) => e.application_name).filter(Boolean));
+  const safeEntries = entries || [];
+  const uniqueApps = new Set(safeEntries.map((e) => e?.application_name).filter(Boolean));
   return {
     totalTickets: tickets,
     totalChats: chats,
     totalAppsTested: uniqueApps.size,
-    totalTestingEntries: entries.length,
-    totalBugs: entries.reduce((sum, e) => sum + e.bugs_found, 0),
-    criticalBugs: entries.reduce((sum, e) => sum + (e.critical_bug ? 1 : 0), 0),
-    completedTests: entries.filter((e) => e.status === "completed").length,
-    inProgressTests: entries.filter((e) => e.status === "in_progress").length,
-    blockedTests: entries.filter((e) => e.status === "blocked").length,
-    onHoldTests: entries.filter((e) => e.status === "on_hold").length,
+    totalTestingEntries: safeEntries.length,
+    totalBugs: safeEntries.reduce((sum, e) => sum + (e?.bugs_found ?? 0), 0),
+    criticalBugs: safeEntries.reduce((sum, e) => sum + (e?.critical_bug ? 1 : 0), 0),
+    completedTests: safeEntries.filter((e) => e?.status === "completed").length,
+    inProgressTests: safeEntries.filter((e) => e?.status === "in_progress").length,
+    blockedTests: safeEntries.filter((e) => e?.status === "blocked").length,
+    onHoldTests: safeEntries.filter((e) => e?.status === "on_hold").length,
   };
 }
 
@@ -95,7 +96,7 @@ type Props = {
   initialDate: string;
   // Pre-loaded data for the initial date (avoids a fetch on first open)
   initialSupportLog: DailySupportLog | null;
-  initialTestingLogs: DailyTestingLog[];
+  initialTestingLogs?: DailyTestingLog[];
   onNextEmployee?: () => void;
 };
 
@@ -261,8 +262,9 @@ function ModalFormBody({
   const [actionType, setActionType] = useState<"save" | "next">("save");
 
   const [testingEntries, setTestingEntries] = useState<TestingEntryFormData[]>(() => {
-    if (testingLogs.length > 0) {
-      return testingLogs.map(logToFormEntry);
+    const logs = testingLogs || [];
+    if (logs.length > 0) {
+      return logs.map(logToFormEntry);
     }
     return [emptyTestingEntry()];
   });
