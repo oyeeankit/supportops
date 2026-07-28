@@ -63,17 +63,19 @@ function getSupportStatus(row: TeamCardRow): SupportStatus {
 }
 
 function getTestingStatus(row: TeamCardRow): TestingStatus {
-  if (row.testingLogs.length === 0) return "completed";
-  const allCompleted = row.testingLogs.every((log) => log.status === "completed");
+  const tLogs = row.testingLogs || [];
+  if (tLogs.length === 0) return "completed";
+  const allCompleted = tLogs.every((log) => log.status === "completed");
   if (allCompleted) return "completed";
   return "in_progress";
 }
 
 function getLastUpdatedTime(row: TeamCardRow): number {
   const sTime = row.supportLog?.updated_at ? new Date(row.supportLog.updated_at).getTime() : 0;
+  const tLogs = row.testingLogs || [];
   const tTime =
-    row.testingLogs.length > 0
-      ? Math.max(...row.testingLogs.map((l) => new Date(l.updated_at).getTime()))
+    tLogs.length > 0
+      ? Math.max(...tLogs.map((l) => (l.updated_at ? new Date(l.updated_at).getTime() : 0)))
       : 0;
   return Math.max(sTime, tTime);
 }
@@ -363,8 +365,9 @@ export function DailyOperationsClient({ rows, initialDate, isManager, monthlyRow
       chats += row.supportLog.chats_handled ?? 0;
     }
 
-    testingEntries += row.testingLogs.length;
-    bugs += row.testingLogs.reduce((sum, log) => sum + (log.bugs_found ?? 0), 0);
+    const tLogs = row.testingLogs || [];
+    testingEntries += tLogs.length;
+    bugs += tLogs.reduce((sum, log) => sum + (log?.bugs_found ?? 0), 0);
   });
 
   const totalEmployees = optimisticRows.length;
@@ -389,7 +392,8 @@ export function DailyOperationsClient({ rows, initialDate, isManager, monthlyRow
         const s = getSupportStatus(r);
         const t = getTestingStatus(r);
         const isCompleted = s === "completed" && t === "completed";
-        const hasLog = s === "completed" || r.testingLogs.length > 0;
+        const rTLogs = r.testingLogs || [];
+        const hasLog = s === "completed" || rTLogs.length > 0;
         if (filterStatus === "completed") return isCompleted;
         if (filterStatus === "pending") return !hasLog;
         if (filterStatus === "in_progress") return hasLog && !isCompleted;
@@ -1122,10 +1126,11 @@ export function DailyOperationsClient({ rows, initialDate, isManager, monthlyRow
 
                   if (isAll) {
                     let cCount = 0;
-                    let tCount = monthlyRows.length;
-                    for (const empRow of monthlyRows) {
-                      const sLog = empRow.supportLogs.find((l) => l.log_date === dateStr);
-                      const tLogs = empRow.testingLogs.filter((l) => l.log_date === dateStr);
+                    const mRows = monthlyRows || [];
+                    let tCount = mRows.length;
+                    for (const empRow of mRows) {
+                      const sLog = (empRow?.supportLogs || []).find((l) => l.log_date === dateStr);
+                      const tLogs = (empRow?.testingLogs || []).filter((l) => l.log_date === dateStr);
                       const sOk = sLog
                         ? sLog.attendance_status === "leave" ||
                           (sLog.attendance_status as any) === "holiday" ||
@@ -1150,8 +1155,8 @@ export function DailyOperationsClient({ rows, initialDate, isManager, monthlyRow
                       dotColor = "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]";
                     }
                   } else {
-                    const empRow = monthlyRows.find((r) => r.employee_id === calendarEmployeeId);
-                    const sLog = empRow?.supportLogs.find((l) => l.log_date === dateStr);
+                    const empRow = (monthlyRows || []).find((r) => r.employee_id === calendarEmployeeId);
+                    const sLog = (empRow?.supportLogs || []).find((l) => l.log_date === dateStr);
                     const isLeave =
                       sLog?.attendance_status === "leave" ||
                       (sLog?.attendance_status as any) === "holiday";
