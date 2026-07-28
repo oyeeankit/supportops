@@ -140,7 +140,7 @@ export function SearchableSelect({
             <div
               ref={dropdownRef}
               style={dropdownStyle}
-              className="max-h-80 overflow-hidden rounded-md border border-input bg-card text-card-foreground shadow-lg"
+              className="max-h-80 overflow-hidden rounded-xl border border-border bg-slate-900 text-slate-100 dark:bg-slate-900 dark:text-slate-100 shadow-2xl z-[99999]"
             >
               <div className="flex items-center border-b border-border px-3">
                 <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />

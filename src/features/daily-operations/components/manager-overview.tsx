@@ -34,7 +34,7 @@ export function ManagerOverview({
       ),
     },
     { key: "role", label: "Role", render: (row) => roleLabels[row.role] },
-    { key: "shift", label: "Shift", render: (row) => shiftLabelsFallback[row.shift] },
+    { key: "shift", label: "Shift", render: (row) => shiftLabelsFallback[row.shift as keyof typeof shiftLabelsFallback] || row.shift },
     {
       key: "attendance",
       label: "Employee Status",

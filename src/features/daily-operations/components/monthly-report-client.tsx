@@ -95,24 +95,24 @@ export function MonthlyReportClient({ rows, summary, selectedMonth, selectedYear
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 lg:flex-row lg:items-end lg:justify-between">
-        <form className="grid gap-3 sm:grid-cols-[160px_120px_auto]" action="/reports" onSubmit={() => startLoading("Generating report...")}>
-          <div className="space-y-2">
-            <Label htmlFor="month">Month</Label>
-            <Select id="month" name="month" defaultValue={selectedMonthNumber}>
+        <form className="grid gap-3 items-end sm:grid-cols-[180px_140px_auto]" action="/reports" onSubmit={() => startLoading("Generating report...")}>
+          <div className="space-y-1.5">
+            <Label htmlFor="month" className="text-xs font-bold text-muted-foreground">Month</Label>
+            <Select id="month" name="month" defaultValue={selectedMonthNumber} className="h-10 text-sm font-semibold">
               {months.map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="year">Year</Label>
-            <Select id="year" name="year" defaultValue={String(selectedYear)}>
+          <div className="space-y-1.5">
+            <Label htmlFor="year" className="text-xs font-bold text-muted-foreground">Year</Label>
+            <Select id="year" name="year" defaultValue={String(selectedYear)} className="h-10 text-sm font-semibold">
               {years.map((year) => (
                 <option key={year} value={year}>{year}</option>
               ))}
             </Select>
           </div>
-          <Button type="submit">Generate</Button>
+          <Button type="submit" className="h-10 px-5 text-sm font-extrabold cursor-pointer">Generate</Button>
         </form>
 
         <div className="flex flex-wrap gap-2">

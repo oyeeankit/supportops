@@ -54,11 +54,11 @@ export function Sidebar({ profile }: { profile: UserProfile }) {
                   }
                 }}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-foreground",
-                  active && "bg-slate-100 dark:bg-slate-800 text-foreground font-extrabold"
+                  "flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-bold tracking-wide text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-foreground",
+                  active && "bg-slate-100 dark:bg-slate-800 text-foreground font-black"
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4.5 w-4.5" />
                 {item.label}
               </Link>
             );

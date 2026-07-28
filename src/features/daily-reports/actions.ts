@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { checkShiftReportingWindow, validateBackdatedLimit } from "./utils/shift-rules";
+import type { Shift, AttendanceStatus } from "../daily-operations/types";
+import { dailySupportLogSchema, testingEntrySchema } from "../daily-operations/schemas";
+import { sendDailyReportNotification } from "@/lib/notifications/email-service";
 
 export type DailyReportActionState = {
   message?: string;
@@ -59,7 +62,7 @@ export async function submitDailyReportAction(
   const supabase = await createClient();
 
   const workDate = String(formData.get("work_date") ?? new Date().toISOString().split("T")[0]);
-  const shift = (String(formData.get("shift") ?? "day")) as Shift;
+  const shift = (String(formData.get("shift") ?? "day") as Shift);
   const attendanceStatus = String(formData.get("attendance_status") ?? "present");
 
   // Enforce 1-day backdated limit
@@ -68,10 +71,21 @@ export async function submitDailyReportAction(
     return { message: dateCheck.reason };
   }
 
-  const { isLate, allowed, reason } = checkShiftReportingWindow(shift, workDate);
-  if (!allowed) {
-    return { message: reason || "Reporting window for this shift has closed." };
+  // Enforce 1 report per day limit — prevent duplicate submissions
+  const { data: existingReport } = await supabase
+    .from("daily_support_logs")
+    .select("id")
+    .eq("employee_id", profile.id)
+    .eq("log_date", workDate)
+    .maybeSingle();
+
+  if (existingReport) {
+    return {
+      message: `You have already submitted a daily report for ${workDate}. Duplicate submissions for the same date are not allowed.`,
+    };
   }
+
+  const { isLate } = checkShiftReportingWindow(workDate, shift);
 
   const supportParsed = dailySupportLogSchema.safeParse({
     attendance_status: attendanceStatus,
@@ -110,10 +124,8 @@ export async function submitDailyReportAction(
         log_date: workDate,
         attendance_status: supportParsed.data.attendance_status,
         tickets_handled: supportParsed.data.tickets_handled,
-        tickets_pending: supportParsed.data.tickets_pending,
         chats_handled: supportParsed.data.chats_handled,
-        calls_handled: supportParsed.data.calls_handled,
-        notes: supportParsed.data.notes,
+        notes: String(formData.get("notes") ?? ""),
         created_by: profile.id,
         updated_by: profile.id,
       },
@@ -165,13 +177,26 @@ export async function submitDailyReportAction(
     // Graceful fallback
   }
 
-  await sendDailyReportNotifications({
+  sendDailyReportNotification({
     employeeName: profile.full_name,
     employeeEmail: profile.email,
     workDate,
-    tickets: Number(supportParsed.data.tickets_handled || 0),
-    chats: Number(supportParsed.data.chats_handled || 0),
-    isLate,
+    shift: String(shift || "Day Shift"),
+    attendance: String(formData.get("attendance_status") ?? "present"),
+    ticketsHandled: Number(supportParsed.data.tickets_handled || 0),
+    chatsHandled: Number(supportParsed.data.chats_handled || 0),
+    contributions: [],
+    testingCount: validatedEntries.length,
+    testingEntries: validatedEntries.map((e: any) => ({
+      platform: e.platform || "shopify",
+      application_name: e.application_name || "App Testing",
+      bugs_found: Number(e.bugs_found || 0),
+      critical_bug: Boolean(e.critical_bug),
+    })),
+    notes: String(formData.get("notes") ?? ""),
+    submissionTime: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+  }).catch((err) => {
+    console.error("[Notification Service] Email trigger error:", err);
   });
 
   revalidatePath("/my-reports");
@@ -233,23 +258,29 @@ export async function submitPublicDailyReportAction(
     .maybeSingle();
 
   if (!profile) {
-    const isQA = email.includes("shivam") || email.includes("qa");
+    const isQA = email.toLowerCase().includes("shivam") || email.toLowerCase().includes("qa");
     const roleName = isQA ? "qa_engineer" : "support_engineer";
-    const { data: roleData } = await supabase.from("roles").select("id").eq("name", roleName).single();
+    let { data: roleData } = await supabase.from("roles").select("id").eq("name", roleName).maybeSingle();
     
+    if (!roleData) {
+      const { data: fallbackRole } = await supabase.from("roles").select("id").limit(1).maybeSingle();
+      roleData = fallbackRole;
+    }
+
     if (roleData) {
-      const nameParts = email.split("@")[0].split(".");
-      const fullName = nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+      const nameParts = email.split("@")[0].split(/[._-]/);
+      const fullName = nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ") || email;
       const { data: newProfile } = await supabase
         .from("profiles")
         .insert({
           full_name: fullName,
-          email: email,
+          email: email.toLowerCase().trim(),
           role_id: roleData.id,
           employment_status: "active",
         })
         .select("id, full_name, email, role_id")
-        .single();
+        .maybeSingle();
+
       profile = newProfile;
     }
   }
@@ -266,7 +297,11 @@ export async function submitPublicDailyReportAction(
     .eq("log_date", workDate)
     .maybeSingle();
 
-  const isUpdate = Boolean(existingLog);
+  if (existingLog) {
+    return {
+      message: `A daily report for ${workDate} has already been submitted for ${profile.full_name} (${email}). Only 1 report per day is allowed.`,
+    };
+  }
 
   // Contributions for Scoring
   const docUpdated = Boolean(formData.get("doc_updated"));
@@ -359,15 +394,36 @@ export async function submitPublicDailyReportAction(
     // Ignore fallback
   }
 
+  // 4. Trigger Email Notifications to Employee & Manager (Non-blocking)
+  sendDailyReportNotification({
+    employeeName: profile.full_name,
+    employeeEmail: email,
+    workDate,
+    shift: "Day Shift (10 AM - 6 PM)",
+    attendance: attendanceStatus,
+    ticketsHandled,
+    chatsHandled,
+    contributions: contributionList,
+    testingCount: testingEntriesRaw.length,
+    testingEntries: testingEntriesRaw.map((e: any) => ({
+      platform: e.platform || "shopify",
+      application_name: e.application_name || "App Testing",
+      bugs_found: Number(e.bugs_found || 0),
+      critical_bug: Boolean(e.critical_bug),
+    })),
+    notes,
+    submissionTime: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+  }).catch((err) => {
+    console.error("[Notification Service] Email trigger error:", err);
+  });
+
   revalidatePath("/dashboard");
   revalidatePath("/operations");
   revalidatePath("/reports");
 
   return {
     saved: true,
-    message: isUpdate
-      ? `Existing report for ${workDate} updated successfully!`
-      : "Daily report submitted successfully!",
+    message: "Daily report submitted successfully!",
     submittedReport: {
       email: profile.email,
       fullName: profile.full_name,
@@ -377,7 +433,6 @@ export async function submitPublicDailyReportAction(
       contributions: contributionList,
       testingCount: testingEntriesRaw.length,
       notes,
-      isUpdate,
     },
   };
 }

@@ -176,6 +176,11 @@ async function fetchDailySupportLogsWithFallback(
     return { data: legacy.data.map(toSupportLog), error: null };
   }
 
+  // If table is missing from schema cache, return empty array without error banner
+  if (isSchemaCacheError(error) || isSchemaCacheError(legacyError) || isSchemaCacheError(legacy.error)) {
+    return { data: [] as DailySupportLog[], error: null };
+  }
+
   return { data: [] as DailySupportLog[], error: error ?? legacyError };
 }
 
@@ -225,6 +230,11 @@ async function fetchDailyTestingLogsWithFallback(
   const legacy = await fetchLegacyOperations(supabase, startDate, endDate, employeeIds);
   if (!legacy.error) {
     return { data: legacy.data.flatMap(toTestingLogs), error: null };
+  }
+
+  // If table is missing from schema cache, return empty array without error banner
+  if (isSchemaCacheError(error) || isSchemaCacheError(legacyError) || isSchemaCacheError(legacy.error)) {
+    return { data: [] as DailyTestingLog[], error: null };
   }
 
   return { data: [] as DailyTestingLog[], error: error ?? legacyError };

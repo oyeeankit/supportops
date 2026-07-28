@@ -33,7 +33,7 @@ export async function saveDailyOperationAction(
     return { message: "You can only update your own daily log." };
   }
 
-  const isTrue = (val: FormDataEntryValue | null) => val === "on" || val === "true" || val === "1" || val === true;
+  const isTrue = (val: FormDataEntryValue | null) => val === "on" || val === "true" || val === "1";
 
   // Parse support data
   const supportPayload = {

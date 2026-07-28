@@ -24,7 +24,7 @@ export default async function OperationsPage({
   const { rows, error } = dailyResult;
   const isManager = profile.role === "manager";
 
-  const clientRows = rows.map((row) => ({
+  const clientRows = (rows || []).map((row) => ({
     employee_id: row.employee_id,
     full_name: row.full_name,
     email: row.email,
@@ -59,7 +59,7 @@ export default async function OperationsPage({
       ) : null}
       {finalError ? <ErrorState title="Unable to load daily operations" description={finalError} /> : null}
 
-      {isManager ? <OperationsKpis rows={rows} /> : null}
+      {isManager ? <OperationsKpis rows={rows || []} /> : null}
 
       <DailyOperationsClient
         rows={clientRows}

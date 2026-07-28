@@ -28,8 +28,8 @@ import {
 import { submitDailyReportAction, saveDailyReportDraftAction } from "../actions";
 import { getAvailableWorkDates, checkShiftReportingWindow } from "../utils/shift-rules";
 import { AttachmentUploader } from "./attachment-uploader";
-import type { UserProfile, Shift } from "@/lib/auth/roles";
-import type { AttendanceStatus, TestingType, TestingStatus, TestingPlatform } from "../../daily-operations/types";
+import type { UserProfile } from "@/lib/auth/roles";
+import type { AttendanceStatus, TestingType, TestingStatus, TestingPlatform, Shift } from "../../daily-operations/types";
 
 type TestingRowItem = {
   id: string;
@@ -161,7 +161,7 @@ export function DailyReportForm({
   };
 
   return (
-    <form action={formAction} className="space-y-6 max-w-4xl mx-auto pb-16">
+    <form action={formAction} className="space-y-6 w-full max-w-6xl mx-auto pb-16">
       {/* Hidden inputs */}
       <input type="hidden" name="work_date" value={workDate} />
       <input type="hidden" name="shift" value={shift} />
@@ -285,14 +285,21 @@ export function DailyReportForm({
       </Card>
 
       {/* 2. Support Work & Metrics */}
-      <Card className="rounded-2xl border border-border/60 bg-card shadow-sm">
-        <CardHeader className="bg-slate-50/40 dark:bg-slate-900/10 px-6 py-4 border-b border-border/50">
-          <CardTitle className="text-base font-extrabold tracking-tight flex items-center gap-2">
-            <Ticket className="h-4 w-4 text-indigo-500" /> Support Work & Metrics
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Enter tickets closed, chats handled, and contributions today.
-          </CardDescription>
+      <Card className="rounded-2xl border border-indigo-200 dark:border-indigo-900/50 border-t-4 border-t-indigo-600 dark:border-t-indigo-500 bg-card shadow-sm">
+        <CardHeader className="bg-indigo-50/40 dark:bg-indigo-950/20 px-6 py-4 border-b border-indigo-100 dark:border-indigo-900/40">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-extrabold tracking-tight flex items-center gap-2 text-indigo-950 dark:text-indigo-200">
+                <Ticket className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400" /> Support Work & Metrics
+              </CardTitle>
+              <CardDescription className="text-xs text-indigo-700/80 dark:text-indigo-300/80 font-medium mt-0.5">
+                Enter tickets closed, chats handled, and contributions today.
+              </CardDescription>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 text-xs font-extrabold">
+              Support Section
+            </span>
+          </div>
         </CardHeader>
         <CardContent className="p-6 space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -360,13 +367,15 @@ export function DailyReportForm({
       </Card>
 
       {/* 3. Testing Work Entries */}
-      <Card className="rounded-2xl border border-border/60 bg-card shadow-sm">
-        <CardHeader className="bg-slate-50/40 dark:bg-slate-900/10 px-6 py-4 border-b border-border/50 flex flex-row items-center justify-between">
+      <Card className="rounded-2xl border border-violet-200 dark:border-violet-900/50 border-t-4 border-t-violet-600 dark:border-t-violet-500 bg-card shadow-sm">
+        <CardHeader className="bg-violet-50/40 dark:bg-violet-950/20 px-6 py-4 border-b border-violet-100 dark:border-violet-900/40 flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-base font-extrabold tracking-tight flex items-center gap-2">
-              <Activity className="h-4 w-4 text-violet-500" /> QA & Testing Work
+            <CardTitle className="text-base font-extrabold tracking-tight flex items-center gap-2 text-violet-950 dark:text-violet-200">
+              <Activity className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" /> QA & Testing Work
             </CardTitle>
-            <CardDescription className="text-xs">Add one or multiple testing activities performed today.</CardDescription>
+            <CardDescription className="text-xs text-violet-700/80 dark:text-violet-300/80 font-medium mt-0.5">
+              Add one or multiple testing activities performed today.
+            </CardDescription>
           </div>
           <Button
             type="button"
@@ -489,6 +498,15 @@ export function DailyReportForm({
               </div>
             </div>
           ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addTestingEntry}
+            className="w-full rounded-xl text-xs font-bold gap-1.5 cursor-pointer border-dashed border-violet-300 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/30"
+          >
+            <Plus className="h-3.5 w-3.5" /> + Add Another Testing Entry
+          </Button>
         </CardContent>
       </Card>
 

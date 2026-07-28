@@ -1,5 +1,5 @@
-import type { Shift, AppRole } from "@/lib/auth/roles";
-import type { DailySupportLog, DailyTestingLog, AttendanceStatus } from "../daily-operations/types";
+import type { AppRole } from "@/lib/auth/roles";
+import type { DailySupportLog, DailyTestingLog, AttendanceStatus, Shift } from "../daily-operations/types";
 
 export type SubmissionStatus = "draft" | "submitted" | "late" | "missing";
 

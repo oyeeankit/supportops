@@ -61,14 +61,14 @@ export async function getDailyReportSubmissionForDate(
       is_late: subData?.is_late ?? false,
       submitted_at: subData?.submitted_at ?? supportLog?.created_at ?? new Date().toISOString(),
       draft_payload: subData?.draft_payload ?? null,
-      notes: subData?.notes ?? supportLog?.notes ?? null,
+      notes: subData?.notes ?? (supportLog as any)?.notes ?? (supportLog as any)?.testing_notes ?? null,
       created_by: profile.id,
       updated_by: profile.id,
       created_at: subData?.created_at ?? supportLog?.created_at ?? new Date().toISOString(),
       updated_at: subData?.updated_at ?? supportLog?.updated_at ?? new Date().toISOString(),
       employee_name: profile.full_name,
       employee_email: profile.email,
-      avatar_url: profile.avatar_url,
+      avatar_url: (profile as any).avatar_url ?? null,
       role: profile.role,
       supportLog,
       testingLogs,
@@ -77,37 +77,51 @@ export async function getDailyReportSubmissionForDate(
   };
 }
 
-export async function getEmployeeSubmissionsHistory(
+export async function getEmployeeSubmissions(
   profile: UserProfile,
-  limit = 30
+  limitOrMonth?: number | string
 ): Promise<{ submissions: DailyReportSubmission[]; error?: string }> {
+  const limit = typeof limitOrMonth === "number" ? limitOrMonth : 30;
+  const monthFilter = typeof limitOrMonth === "string" ? limitOrMonth : null;
+
   const supabase = await createClient();
 
-  const { data: subData } = await supabase
+  let subQuery = supabase
     .from("daily_report_submissions")
     .select("*")
     .eq("employee_id", profile.id)
-    .order("work_date", { ascending: false })
-    .limit(limit);
+    .order("work_date", { ascending: false });
 
-  const supportRes = await supabase
+  let supportQuery = supabase
     .from("daily_support_logs")
     .select("*")
     .eq("employee_id", profile.id)
-    .order("log_date", { ascending: false })
-    .limit(limit);
+    .order("log_date", { ascending: false });
 
-  const testingRes = await supabase
+  let testingQuery = supabase
     .from("daily_testing_logs")
     .select("*")
     .eq("employee_id", profile.id)
-    .order("log_date", { ascending: false })
-    .limit(limit * 3);
+    .order("log_date", { ascending: false });
 
-  const attachRes = await supabase
-    .from("daily_report_attachments")
-    .select("*")
-    .eq("uploaded_by", profile.id);
+  if (monthFilter) {
+    const startDate = `${monthFilter}-01`;
+    const endDate = `${monthFilter}-31`;
+    subQuery = subQuery.gte("work_date", startDate).lte("work_date", endDate);
+    supportQuery = supportQuery.gte("log_date", startDate).lte("log_date", endDate);
+    testingQuery = testingQuery.gte("log_date", startDate).lte("log_date", endDate);
+  } else {
+    subQuery = subQuery.limit(limit);
+    supportQuery = supportQuery.limit(limit);
+    testingQuery = testingQuery.limit(limit * 3);
+  }
+
+  const [{ data: subData }, supportRes, testingRes, attachRes] = await Promise.all([
+    subQuery,
+    supportQuery,
+    testingQuery,
+    supabase.from("daily_report_attachments").select("*").eq("uploaded_by", profile.id),
+  ]);
 
   const supportMap = new Map<string, DailySupportLog>();
   (supportRes.data || []).forEach((log) => supportMap.set(log.log_date, log as DailySupportLog));
@@ -239,7 +253,7 @@ export async function getManagerSubmissions(
       is_late: false,
       submitted_at: empSupportLog?.created_at ?? new Date().toISOString(),
       draft_payload: null,
-      notes: empSupportLog?.notes ?? null,
+      notes: (empSupportLog as any)?.notes ?? (empSupportLog as any)?.testing_notes ?? null,
       created_by: empId,
       updated_by: empId,
       created_at: empSupportLog?.created_at ?? new Date().toISOString(),
@@ -257,4 +271,4 @@ export async function getManagerSubmissions(
   return { submissions };
 }
 
-export { getEmployeeSubmissionsHistory as getEmployeeSubmissions };
+export { getEmployeeSubmissions as getEmployeeSubmissionsHistory };

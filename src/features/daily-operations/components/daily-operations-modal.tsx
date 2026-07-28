@@ -160,7 +160,7 @@ export function DailyOperationsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/45 backdrop-blur-md p-4 sm:p-6 transition-all duration-300">
-      <div className="my-4 w-full max-w-4xl rounded-2xl bg-card border border-border/80 shadow-2xl transition-all duration-300 transform scale-100 overflow-hidden">
+      <div className="my-4 w-full max-w-6xl rounded-2xl bg-card border border-border/80 shadow-2xl transition-all duration-300 transform scale-100 overflow-hidden">
         {/* Header */}
         <div className="flex items-start justify-between border-b border-border/60 px-6 py-5 bg-slate-50/50 dark:bg-slate-900/30 rounded-t-2xl">
           <div className="space-y-1">
@@ -198,7 +198,7 @@ export function DailyOperationsModal({
         </div>
 
         {/* Form body */}
-        <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
+        <div className="max-h-[75vh] overflow-y-auto px-6 py-5">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />

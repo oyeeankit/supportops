@@ -21,11 +21,17 @@ import type { TeamMemberDailyRow } from "../types";
 type CommandProps = {
   profile: UserProfile;
   todayData: TeamMemberDailyRow[];
+  trendData?: any;
+  monthlySummary?: any;
+  monthlyRows?: any;
 };
 
 export function ManagerCommandCenter({
   profile,
   todayData,
+  trendData,
+  monthlySummary,
+  monthlyRows,
 }: CommandProps) {
   const currentDate = new Date();
   const dateStr = currentDate.toLocaleDateString("en-US", {
@@ -242,7 +248,7 @@ function MvpCard({
 }: {
   label: string;
   value: string | number;
-  icon: React.ElementType;
+  icon: any;
   color: string;
   bg: string;
 }) {

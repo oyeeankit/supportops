@@ -1,5 +1,6 @@
 import type { AppRole } from "@/lib/auth/roles";
 import type { Shift } from "@/features/employees/types";
+export type { Shift };
 
 export const attendanceStatuses = ["present", "wfh", "half_day", "leave"] as const;
 

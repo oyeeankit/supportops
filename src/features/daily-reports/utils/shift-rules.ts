@@ -1,4 +1,4 @@
-import type { Shift } from "@/lib/auth/roles";
+import type { Shift } from "../../daily-operations/types";
 
 /**
  * Validates that workDate is strictly Today or Yesterday (maximum 1 day backdated).

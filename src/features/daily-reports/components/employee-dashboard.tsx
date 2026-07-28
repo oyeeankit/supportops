@@ -42,8 +42,8 @@ export function EmployeeDashboard({
   const isSubmittedToday = todaySubmission?.status === "submitted" || todaySubmission?.status === "late";
 
   // Calculate monthly stats
-  const totalTickets = submissions.reduce((acc, s) => acc + (s.tickets_handled || 0), 0);
-  const totalChats = submissions.reduce((acc, s) => acc + (s.chats_handled || 0), 0);
+  const totalTickets = submissions.reduce((acc, s) => acc + (s.supportLog?.tickets_handled || 0), 0);
+  const totalChats = submissions.reduce((acc, s) => acc + (s.supportLog?.chats_handled || 0), 0);
   const totalSubmissions = submissions.filter((s) => s.status === "submitted" || s.status === "late").length;
 
   return (
@@ -96,7 +96,7 @@ export function EmployeeDashboard({
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {isSubmittedToday
-                  ? `Logged ${todaySubmission?.tickets_handled || 0} tickets, ${todaySubmission?.chats_handled || 0} chats.`
+                  ? `Logged ${todaySubmission?.supportLog?.tickets_handled || 0} tickets, ${todaySubmission?.supportLog?.chats_handled || 0} chats.`
                   : "Please submit your daily log before your shift ends (takes < 2 minutes)."}
               </p>
             </div>
@@ -187,10 +187,10 @@ export function EmployeeDashboard({
                         {report.work_date}
                       </td>
                       <td className="px-6 py-3.5 text-xs font-semibold">
-                        {report.tickets_handled ?? 0}
+                        {report.supportLog?.tickets_handled ?? 0}
                       </td>
                       <td className="px-6 py-3.5 text-xs font-semibold">
-                        {report.chats_handled ?? 0}
+                        {report.supportLog?.chats_handled ?? 0}
                       </td>
                       <td className="px-6 py-3.5">
                         {report.status === "submitted" && (
