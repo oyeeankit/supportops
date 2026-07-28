@@ -1010,7 +1010,7 @@ export function DailyOperationsClient({ rows, initialDate, isManager, monthlyRow
                             )}
                             onClick={() => openModal(row)}
                           >
-                            {hasLog ? "Continue Log" : "Add Log"}
+                            {hasLog ? "Edit Log" : "Add Log"}
                           </Button>
                           <ActionDropdown onAction={(action) => handleRowAction(action, row)} />
                         </div>

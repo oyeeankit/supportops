@@ -547,7 +547,7 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
     .order("full_name");
 
   const { data: profiles, error: profilesError } = isManager
-    ? await profileQuery
+    ? await profileQuery.neq("id", profile.id)
     : await profileQuery.eq("id", profile.id);
 
   if (profilesError) {
@@ -557,11 +557,13 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
   const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((e) => e.id);
   let supportLogs: DailySupportLog[] = [];
   let testingLogs: DailyTestingLog[] = [];
+  const submissionsMap = new Set<string>();
 
   if (employeeIds.length > 0) {
-    const [sr, tr] = await Promise.all([
+    const [sr, tr, subRes] = await Promise.all([
       fetchDailySupportLogsWithFallback(supabase, date, undefined, employeeIds),
       fetchDailyTestingLogsWithFallback(supabase, date, undefined, employeeIds),
+      supabase.from("daily_report_submissions").select("employee_id").eq("work_date", date).in("employee_id", employeeIds),
     ]);
 
     if (sr.error) return { date, rows: [], error: sr.error.message };
@@ -569,6 +571,10 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
 
     if (tr.error) return { date, rows: [], error: tr.error.message };
     testingLogs = tr.data;
+
+    if (subRes.data) {
+      subRes.data.forEach((s) => submissionsMap.add(s.employee_id));
+    }
   }
 
   const supportByEmp = new Map(supportLogs.map((l) => [l.employee_id, l]));
@@ -581,6 +587,31 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
 
   const rows = ((profiles ?? []) as unknown as ProfileRow[]).map((emp) => {
     const role = Array.isArray(emp.roles) ? emp.roles[0]?.name : emp.roles?.name ?? "support_engineer";
+    let sLog = supportByEmp.get(emp.id) ?? null;
+    if (!sLog && submissionsMap.has(emp.id)) {
+      sLog = {
+        id: `sub-${emp.id}`,
+        employee_id: emp.id,
+        log_date: date,
+        attendance_status: "present",
+        tickets_handled: 0,
+        chats_handled: 0,
+        doc_updated: false,
+        feature_suggestion: false,
+        bug_verification: false,
+        asked_for_review: false,
+        got_review: false,
+        other_contribution: false,
+        support_quality: "good",
+        testing_quality: "good",
+        testing_notes: null,
+        created_by: null,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
+
     return {
       employee_id: emp.id,
       full_name: emp.full_name,
@@ -588,7 +619,7 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
       role: role as AppRole,
       shift: emp.shift,
       avatar_url: emp.avatar_url,
-      supportLog: supportByEmp.get(emp.id) ?? null,
+      supportLog: sLog,
       testingLogs: testingByEmp.get(emp.id) ?? [],
     };
   });
@@ -695,7 +726,7 @@ export async function getDailyOperationsMonthData(
     .order("full_name");
 
   const { data: profiles, error: profilesError } = isManager
-    ? await profileQuery
+    ? await profileQuery.neq("id", profile.id)
     : await profileQuery.eq("id", profile.id);
 
   if (profilesError) {
