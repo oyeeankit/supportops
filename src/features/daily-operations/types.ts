@@ -60,7 +60,7 @@ export const platformLabels: Record<string, string> = {
 
 // Apps grouped by platform, sorted alphabetically within each group.
 // "No Testing Assigned" always appears first under "Support Only".
-export const appsByPlatform: Record<TestingPlatform, readonly string[]> = {
+export const appsByPlatform: Record<string, readonly string[]> = {
   support_only: ["No Testing Assigned"],
   shopify: [
     "Bolt",
@@ -81,7 +81,10 @@ export const appsByPlatform: Record<TestingPlatform, readonly string[]> = {
     "Spreadr",
     "Watchlyst",
   ],
+  ecommerce: ["Custom Store App"],
   wix: ["Pro Bulk Editor", "Spreadr"],
+  csv: ["Bulk CSV Importer"],
+  other: ["Custom Feature App"],
   bigcommerce: ["Spreadr", "Supr"],
   woocommerce: ["Spreadr"],
 } as const;
@@ -89,7 +92,7 @@ export const appsByPlatform: Record<TestingPlatform, readonly string[]> = {
 // Lookup: app name -> platform
 export const platformForApp: Record<string, TestingPlatform> = Object.fromEntries(
   Object.entries(appsByPlatform).flatMap(([platform, apps]) =>
-    apps.map((app) => [app, platform as TestingPlatform]),
+    (apps || []).map((app) => [app, platform as TestingPlatform]),
   ),
 ) as Record<string, TestingPlatform>;
 
