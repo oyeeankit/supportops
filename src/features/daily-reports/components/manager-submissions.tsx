@@ -110,7 +110,18 @@ export function ManagerSubmissions({
           </div>
 
           <div>
-            <Label className="text-[10px] font-bold text-muted-foreground uppercase">Work Date</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-[10px] font-bold text-muted-foreground uppercase">Work Date</Label>
+              {selectedDate && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate("")}
+                  className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-extrabold ml-2 cursor-pointer"
+                >
+                  Show All Dates
+                </button>
+              )}
+            </div>
             <Input
               type="date"
               value={selectedDate}
@@ -152,13 +163,35 @@ export function ManagerSubmissions({
 
       {/* Submissions List */}
       <Card className="rounded-2xl border border-border/60 bg-card shadow-sm overflow-hidden">
-        <CardHeader className="bg-slate-50/40 dark:bg-slate-900/10 px-6 py-4 border-b border-border/50">
+        <CardHeader className="bg-slate-50/40 dark:bg-slate-900/10 px-6 py-4 border-b border-border/50 flex flex-row items-center justify-between">
           <CardTitle className="text-base font-extrabold tracking-tight">Employee Submissions List</CardTitle>
+          {selectedDate && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedDate("")}
+              className="text-xs font-bold rounded-lg border-border/80 h-7"
+            >
+              View All Historical Submissions
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {filteredSubmissions.length === 0 ? (
-            <div className="p-8 text-center text-xs font-semibold text-muted-foreground">
-              No daily reports match the selected date and filter parameters.
+            <div className="p-8 text-center space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground">
+                No daily reports match the selected date ({selectedDate || "All Dates"}) and filter parameters.
+              </p>
+              {selectedDate && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => setSelectedDate("")}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400"
+                >
+                  Clear Date Filter to View All Submissions
+                </Button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

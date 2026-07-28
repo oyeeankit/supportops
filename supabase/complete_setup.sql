@@ -36,16 +36,37 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+-- Ensure columns exist and auth_user_id is nullable for unauthenticated form entries
+alter table public.profiles alter column auth_user_id drop not null;
+alter table public.profiles add column if not exists role text default 'support_engineer';
+alter table public.profiles add column if not exists shift text default 'day';
+alter table public.profiles add column if not exists employment_status text default 'active';
+alter table public.profiles add column if not exists role_id uuid references public.roles(id);
+
 -- Seed initial team profiles if missing
-insert into public.profiles (full_name, email, role, shift, employment_status)
-values
-  ('Ankit Mane', 'mane@thaliatechnologies.com', 'manager', 'day', 'active'),
-  ('Lalit', 'lalit@thaliatechnologies.com', 'support_engineer', 'day', 'active'),
-  ('Gaurav', 'gaurav@thaliatechnologies.com', 'support_engineer', 'morning', 'active'),
-  ('Rupali', 'rupali@thaliatechnologies.com', 'support_engineer', 'evening', 'active'),
-  ('Prathmesh', 'prathmesh@thaliatechnologies.com', 'support_engineer', 'day', 'active'),
-  ('Shivam', 'shivam@thaliatechnologies.com', 'qa_engineer', 'day', 'active')
-on conflict (email) do nothing;
+insert into public.profiles (full_name, email, role, role_id, shift, employment_status)
+select 
+  p.full_name, 
+  p.email, 
+  p.role, 
+  r.id as role_id,
+  p.shift, 
+  p.employment_status
+from (
+  values
+    ('Ankit Mane', 'mane@thaliatechnologies.com', 'manager', 'day', 'active'),
+    ('Lalit', 'lalit@thaliatechnologies.com', 'support_engineer', 'day', 'active'),
+    ('Gaurav', 'gaurav@thaliatechnologies.com', 'support_engineer', 'morning', 'active'),
+    ('Rupali', 'rupali@thaliatechnologies.com', 'support_engineer', 'evening', 'active'),
+    ('Prathmesh', 'prathmesh@thaliatechnologies.com', 'support_engineer', 'day', 'active'),
+    ('Shivam', 'shivam@thaliatechnologies.com', 'qa_engineer', 'day', 'active')
+) as p(full_name, email, role, shift, employment_status)
+left join public.roles r on r.name = p.role
+on conflict (email) do update set
+  role = excluded.role,
+  role_id = coalesce(excluded.role_id, public.profiles.role_id),
+  shift = excluded.shift,
+  employment_status = excluded.employment_status;
 
 -- 3. Daily Operations & Support Logs Table
 create table if not exists public.daily_support_logs (
@@ -72,6 +93,16 @@ create table if not exists public.daily_support_logs (
   unique (employee_id, log_date)
 );
 
+alter table public.daily_support_logs add column if not exists doc_updated boolean default false;
+alter table public.daily_support_logs add column if not exists feature_suggestion boolean default false;
+alter table public.daily_support_logs add column if not exists bug_verification boolean default false;
+alter table public.daily_support_logs add column if not exists asked_for_review boolean default false;
+alter table public.daily_support_logs add column if not exists got_review boolean default false;
+alter table public.daily_support_logs add column if not exists other_contribution boolean default false;
+alter table public.daily_support_logs add column if not exists support_quality text default 'average';
+alter table public.daily_support_logs add column if not exists testing_quality text default 'average';
+alter table public.daily_support_logs add column if not exists testing_notes text;
+
 -- 4. Daily Testing Logs Table
 create table if not exists public.daily_testing_logs (
   id uuid primary key default gen_random_uuid(),
@@ -91,6 +122,9 @@ create table if not exists public.daily_testing_logs (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.daily_testing_logs add column if not exists platform text default 'shopify';
+alter table public.daily_testing_logs add column if not exists critical_bug boolean default false;
 
 -- 5. Public Daily Report Portal Submissions & Attachments Table
 DO $$ 

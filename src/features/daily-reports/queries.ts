@@ -188,47 +188,55 @@ export async function getManagerSubmissions(
     return { submissions: [], error: "Unauthorized access." };
   }
 
-  // 1. Fetch support logs and testing logs to construct comprehensive submission list
+  // 1. Fetch daily report submissions, support logs, and testing logs
+  let subQuery = supabase.from("daily_report_submissions").select("*").order("work_date", { ascending: false });
   let supportQuery = supabase.from("daily_support_logs").select("*").order("log_date", { ascending: false });
   let testingQuery = supabase.from("daily_testing_logs").select("*").order("log_date", { ascending: false });
 
   if (filters?.date) {
+    subQuery = subQuery.eq("work_date", filters.date);
     supportQuery = supportQuery.eq("log_date", filters.date);
     testingQuery = testingQuery.eq("log_date", filters.date);
   }
   if (filters?.employeeId && filters.employeeId !== "all") {
+    subQuery = subQuery.eq("employee_id", filters.employeeId);
     supportQuery = supportQuery.eq("employee_id", filters.employeeId);
     testingQuery = testingQuery.eq("employee_id", filters.employeeId);
   }
 
-  const [supportRes, testingRes] = await Promise.all([supportQuery, testingQuery]);
+  const [subRes, supportRes, testingRes] = await Promise.all([subQuery, supportQuery, testingQuery]);
+  const subData = subRes.data || [];
   const supportLogs = (supportRes.data || []) as DailySupportLog[];
   const testingLogs = (testingRes.data || []) as DailyTestingLog[];
 
   // Collect all unique employee IDs
   const empIds = Array.from(
-    new Set([...supportLogs.map((l) => l.employee_id), ...testingLogs.map((t) => t.employee_id)])
+    new Set([
+      ...subData.map((s) => s.employee_id),
+      ...supportLogs.map((l) => l.employee_id),
+      ...testingLogs.map((t) => t.employee_id),
+    ])
   );
 
   if (empIds.length === 0) {
     return { submissions: [] };
   }
 
-  // 2. Fetch employee profiles (excluding managers)
+  // 2. Fetch employee profiles (including all team profiles)
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name, email, avatar_url, roles(name)")
-    .in("id", empIds)
-    .neq("id", profile.id); // Exclude manager profile
+    .select("id, full_name, email, avatar_url, role, roles(name)")
+    .in("id", empIds);
 
   const profileMap = new Map();
   (profiles || []).forEach((p) => {
-    const roleName = Array.isArray(p.roles) ? p.roles[0]?.name : (p.roles as any)?.name ?? "support_engineer";
+    const roleName = Array.isArray(p.roles) ? p.roles[0]?.name : (p.roles as any)?.name ?? p.role ?? "support_engineer";
     profileMap.set(p.id, { ...p, role: roleName });
   });
 
   // Group logs by (employee_id, date)
   const groupedKeys = new Set<string>();
+  subData.forEach((s) => groupedKeys.add(`${s.employee_id}_${s.work_date}`));
   supportLogs.forEach((l) => groupedKeys.add(`${l.employee_id}_${l.log_date}`));
   testingLogs.forEach((t) => groupedKeys.add(`${t.employee_id}_${t.log_date}`));
 
@@ -236,28 +244,33 @@ export async function getManagerSubmissions(
 
   for (const key of Array.from(groupedKeys)) {
     const [empId, workDate] = key.split("_");
-    const emp = profileMap.get(empId);
+    const emp = profileMap.get(empId) || {
+      full_name: `Employee (${empId.slice(0, 6)})`,
+      email: "",
+      avatar_url: null,
+      role: "support_engineer",
+    };
 
-    // Skip if employee profile not found (or if it's manager)
-    if (!emp) continue;
-
+    const subRecord = subData.find((s) => s.employee_id === empId && s.work_date === workDate) ?? null;
     const empSupportLog = supportLogs.find((l) => l.employee_id === empId && l.log_date === workDate) ?? null;
     const empTestingLogs = testingLogs.filter((t) => t.employee_id === empId && t.log_date === workDate);
 
+    const status = subRecord?.status ?? (empSupportLog || empTestingLogs.length > 0 ? "submitted" : "missing");
+
     submissions.push({
-      id: empSupportLog?.id ?? `sub_${empId}_${workDate}`,
+      id: subRecord?.id ?? empSupportLog?.id ?? `sub_${empId}_${workDate}`,
       employee_id: empId,
       work_date: workDate,
-      shift: "day",
-      status: "submitted",
-      is_late: false,
-      submitted_at: empSupportLog?.created_at ?? new Date().toISOString(),
-      draft_payload: null,
-      notes: (empSupportLog as any)?.notes ?? (empSupportLog as any)?.testing_notes ?? null,
+      shift: subRecord?.shift ?? "day",
+      status,
+      is_late: subRecord?.is_late ?? false,
+      submitted_at: subRecord?.submitted_at ?? empSupportLog?.created_at ?? new Date().toISOString(),
+      draft_payload: subRecord?.draft_payload ?? null,
+      notes: subRecord?.notes ?? (empSupportLog as any)?.notes ?? (empSupportLog as any)?.testing_notes ?? null,
       created_by: empId,
       updated_by: empId,
-      created_at: empSupportLog?.created_at ?? new Date().toISOString(),
-      updated_at: empSupportLog?.updated_at ?? new Date().toISOString(),
+      created_at: subRecord?.created_at ?? empSupportLog?.created_at ?? new Date().toISOString(),
+      updated_at: subRecord?.updated_at ?? empSupportLog?.updated_at ?? new Date().toISOString(),
       employee_name: emp.full_name,
       employee_email: emp.email,
       avatar_url: emp.avatar_url,
