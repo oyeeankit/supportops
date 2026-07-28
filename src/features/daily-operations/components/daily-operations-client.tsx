@@ -519,82 +519,8 @@ export function DailyOperationsClient({ rows, initialDate, isManager, monthlyRow
 
       {currentView === "list" ? (
         <>
-          {/* Top Summary Cards (10 KPIs) */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 animate-slide-in">
-            <MetricCard
-              label="Present"
-              value={present}
-              icon={CheckCircle2}
-              colorClass="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
-              testId="metric-present"
-            />
-            <MetricCard
-              label="WFH"
-              value={wfh}
-              icon={Home}
-              colorClass="bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
-              testId="metric-wfh"
-            />
-            <MetricCard
-              label="Leave"
-              value={leave}
-              icon={CalendarOff}
-              colorClass="bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"
-              testId="metric-leave"
-            />
-            <MetricCard
-              label="Holidays"
-              value={holiday}
-              icon={Sparkles}
-              colorClass="bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400"
-              testId="metric-holiday"
-            />
-            <MetricCard
-              label="Completed Logs"
-              value={completedLogs}
-              icon={CheckSquare}
-              colorClass="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
-              testId="metric-completed-logs"
-            />
-            <MetricCard
-              label="Pending Logs"
-              value={pendingLogs}
-              icon={CircleDashed}
-              colorClass="bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"
-              testId="metric-pending-logs"
-            />
-            <MetricCard
-              label="Tickets Today"
-              value={tickets}
-              icon={Ticket}
-              colorClass="bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400"
-              testId="metric-tickets"
-            />
-            <MetricCard
-              label="Chats Today"
-              value={chats}
-              icon={MessageSquare}
-              colorClass="bg-pink-50 text-pink-600 dark:bg-pink-950/40 dark:text-pink-400"
-              testId="metric-chats"
-            />
-            <MetricCard
-              label="Testing Entries"
-              value={testingEntries}
-              icon={Activity}
-              colorClass="bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-400"
-              testId="metric-testing"
-            />
-            <MetricCard
-              label="Bugs Found"
-              value={bugs}
-              icon={ShieldAlert}
-              colorClass="bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400"
-              testId="metric-bugs"
-            />
-          </div>
-
           {/* Daily Progress Card & Log Date Section */}
-          <div className="grid lg:grid-cols-[1fr_auto] gap-4 items-stretch animate-slide-in [animation-delay:100ms]">
+          <div className="grid lg:grid-cols-[1fr_auto] gap-4 items-stretch animate-slide-in">
             <Card className="rounded-2xl border-border/60 shadow-sm overflow-hidden bg-card transition-all hover:shadow-md">
               <CardContent className="p-5 flex flex-col justify-center h-full">
                 <div className="flex items-center justify-between mb-3">

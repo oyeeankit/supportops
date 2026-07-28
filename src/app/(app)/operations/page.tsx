@@ -59,8 +59,6 @@ export default async function OperationsPage({
       ) : null}
       {finalError ? <ErrorState title="Unable to load daily operations" description={finalError} /> : null}
 
-      {isManager ? <OperationsKpis rows={rows || []} /> : null}
-
       <DailyOperationsClient
         rows={clientRows}
         initialDate={date}
