@@ -3,7 +3,7 @@ import type { EmailSettings } from "./types";
 
 export const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
   resend_api_key: process.env.RESEND_API_KEY || "",
-  sender_email: process.env.EMAIL_FROM || "SupportOps <onboarding@resend.dev>",
+  sender_email: process.env.EMAIL_FROM || "SupportOps <notifications@supportops.thaliatechnologies.com>",
   primary_manager_email: process.env.MANAGER_EMAIL || "mane@thaliatechnologies.com",
   cc_recipients: [],
   admin_recipients: [],

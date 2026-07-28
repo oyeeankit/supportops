@@ -167,7 +167,7 @@ create table if not exists public.daily_report_attachments (
 create table if not exists public.email_settings (
   id uuid primary key default gen_random_uuid(),
   resend_api_key text default '',
-  sender_email text default 'SupportOps <onboarding@resend.dev>',
+  sender_email text default 'SupportOps <notifications@supportops.thaliatechnologies.com>',
   primary_manager_email text default 'mane@thaliatechnologies.com',
   cc_recipients text[] default array[]::text[],
   admin_recipients text[] default array[]::text[],
@@ -187,7 +187,7 @@ insert into public.email_settings (id, resend_api_key, sender_email, primary_man
 select 
   '00000000-0000-0000-0000-000000000001'::uuid,
   '',
-  'SupportOps <onboarding@resend.dev>',
+  'SupportOps <notifications@supportops.thaliatechnologies.com>',
   'mane@thaliatechnologies.com',
   'http://localhost:3000'
 where not exists (select 1 from public.email_settings);
