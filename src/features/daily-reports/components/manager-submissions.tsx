@@ -210,8 +210,9 @@ export function ManagerSubmissions({
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {filteredSubmissions.map((sub) => {
-                    const tickets = sub.supportLog?.tickets_handled ?? 0;
-                    const chats = sub.supportLog?.chats_handled ?? 0;
+                    const draft = (sub.draft_payload as any) ?? {};
+                    const tickets = sub.supportLog?.tickets_handled || Number(draft.tickets_handled ?? draft.tickets ?? 0);
+                    const chats = sub.supportLog?.chats_handled || Number(draft.chats_handled ?? draft.chats ?? 0);
                     const testingCount = sub.testingLogs?.length ?? 0;
 
                     return (
@@ -330,13 +331,13 @@ export function ManagerSubmissions({
                   <div className="p-3 rounded-lg bg-background border border-indigo-200/60 dark:border-indigo-900/50">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase">Tickets Solved</p>
                     <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">
-                      {activeSubmission.supportLog?.tickets_handled ?? 0}
+                      {activeSubmission.supportLog?.tickets_handled || Number(((activeSubmission.draft_payload as any) ?? {}).tickets_handled ?? 0)}
                     </p>
                   </div>
                   <div className="p-3 rounded-lg bg-background border border-pink-200/60 dark:border-pink-900/50">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase">Chats Handled</p>
                     <p className="text-lg font-black text-pink-600 dark:text-pink-400">
-                      {activeSubmission.supportLog?.chats_handled ?? 0}
+                      {activeSubmission.supportLog?.chats_handled || Number(((activeSubmission.draft_payload as any) ?? {}).chats_handled ?? 0)}
                     </p>
                   </div>
                   <div className="p-3 rounded-lg bg-background border border-violet-200/60 dark:border-violet-900/50">

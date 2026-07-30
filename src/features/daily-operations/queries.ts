@@ -331,10 +331,11 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
   }> = [];
 
   if (employeeIds.length > 0) {
-    const [sr, tr, ar] = await Promise.all([
+    const [sr, tr, ar, subRes] = await Promise.all([
       fetchDailySupportLogsWithFallback(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds),
       fetchDailyTestingLogsWithFallback(supabase, reportMonth.startDate, reportMonth.endDate, employeeIds),
       supabase.from("monthly_performance_adjustments").select("*").eq("report_month", reportMonth.startDate).in("employee_id", employeeIds),
+      supabase.from("daily_report_submissions").select("employee_id, work_date, draft_payload, notes").gte("work_date", reportMonth.startDate).lte("work_date", reportMonth.endDate).in("employee_id", employeeIds),
     ]);
 
     if (sr.error) {
@@ -351,6 +352,45 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
       return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, ar.error.message);
     }
     adjustments = (ar.data ?? []) as typeof adjustments;
+
+    if (subRes.data) {
+      for (const s of subRes.data) {
+        const wDate = String(s.work_date).split("T")[0];
+        const draft = (s.draft_payload as any) ?? {};
+        const tHandled = Number(draft.tickets_handled ?? draft.tickets ?? 0);
+        const cHandled = Number(draft.chats_handled ?? draft.chats ?? 0);
+
+        const existingIdx = supportLogs.findIndex((l) => l.employee_id === s.employee_id && String(l.log_date).split("T")[0] === wDate);
+        if (existingIdx >= 0) {
+          if ((supportLogs[existingIdx].tickets_handled ?? 0) === 0 && (supportLogs[existingIdx].chats_handled ?? 0) === 0 && (tHandled > 0 || cHandled > 0)) {
+            supportLogs[existingIdx].tickets_handled = tHandled;
+            supportLogs[existingIdx].chats_handled = cHandled;
+          }
+        } else if (tHandled > 0 || cHandled > 0) {
+          supportLogs.push({
+            id: `sub-m-${s.employee_id}-${wDate}`,
+            employee_id: s.employee_id,
+            log_date: wDate,
+            attendance_status: draft.attendance_status ?? "present",
+            tickets_handled: tHandled,
+            chats_handled: cHandled,
+            doc_updated: Boolean(draft.doc_updated),
+            feature_suggestion: Boolean(draft.feature_suggestion),
+            bug_verification: Boolean(draft.bug_verification),
+            asked_for_review: Boolean(draft.asked_for_review),
+            got_review: Boolean(draft.got_review),
+            other_contribution: Boolean(draft.other_contribution),
+            support_quality: "good",
+            testing_quality: "good",
+            testing_notes: s.notes ?? null,
+            created_by: null,
+            updated_by: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+      }
+    }
   }
 
   // Group logs by employee

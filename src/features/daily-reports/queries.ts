@@ -160,7 +160,35 @@ export async function getEmployeeSubmissions(
 
   const fullSubmissions: DailyReportSubmission[] = allDates.map((workDate) => {
     const sub = subMap.get(workDate);
-    const sLog = supportMap.get(workDate) ?? null;
+    let sLog = supportMap.get(workDate) ?? null;
+    if ((!sLog || ((sLog.tickets_handled ?? 0) === 0 && (sLog.chats_handled ?? 0) === 0)) && sub?.draft_payload) {
+      const draft = sub.draft_payload as any;
+      const tHandled = Number(draft.tickets_handled ?? draft.tickets ?? 0);
+      const cHandled = Number(draft.chats_handled ?? draft.chats ?? 0);
+      if (tHandled > 0 || cHandled > 0) {
+        sLog = {
+          id: sLog?.id ?? `draft-s-${profile.id}-${workDate}`,
+          employee_id: profile.id,
+          log_date: workDate,
+          attendance_status: draft.attendance_status ?? sLog?.attendance_status ?? "present",
+          tickets_handled: tHandled,
+          chats_handled: cHandled,
+          doc_updated: Boolean(draft.doc_updated ?? sLog?.doc_updated),
+          feature_suggestion: Boolean(draft.feature_suggestion ?? sLog?.feature_suggestion),
+          bug_verification: Boolean(draft.bug_verification ?? sLog?.bug_verification),
+          asked_for_review: Boolean(draft.asked_for_review ?? sLog?.asked_for_review),
+          got_review: Boolean(draft.got_review ?? sLog?.got_review),
+          other_contribution: Boolean(draft.other_contribution ?? sLog?.other_contribution),
+          support_quality: sLog?.support_quality ?? "good",
+          testing_quality: sLog?.testing_quality ?? "good",
+          testing_notes: sub.notes ?? sLog?.testing_notes ?? null,
+          created_by: null,
+          updated_by: null,
+          created_at: sub.created_at ?? sLog?.created_at ?? new Date().toISOString(),
+          updated_at: sub.updated_at ?? sLog?.updated_at ?? new Date().toISOString(),
+        };
+      }
+    }
     let tLogs = testingMap.get(workDate) ?? [];
     if (tLogs.length === 0 && sub?.draft_payload?.testing_entries) {
       const draftList = sub.draft_payload.testing_entries;
@@ -314,7 +342,36 @@ export async function getManagerSubmissions(
 
     const subRecord = subData.find((s) => s.employee_id === empId && String(s.work_date).split("T")[0] === workDate) ?? null;
     const matchingSupportLogs = supportLogs.filter((l) => l.employee_id === empId && String(l.log_date).split("T")[0] === workDate);
-    const empSupportLog = matchingSupportLogs.find((l) => (l.tickets_handled ?? 0) > 0 || (l.chats_handled ?? 0) > 0) ?? matchingSupportLogs[0] ?? null;
+    let empSupportLog = matchingSupportLogs.find((l) => (l.tickets_handled ?? 0) > 0 || (l.chats_handled ?? 0) > 0) ?? matchingSupportLogs[0] ?? null;
+
+    if ((!empSupportLog || ((empSupportLog.tickets_handled ?? 0) === 0 && (empSupportLog.chats_handled ?? 0) === 0)) && subRecord?.draft_payload) {
+      const draft = subRecord.draft_payload as any;
+      const tHandled = Number(draft.tickets_handled ?? draft.tickets ?? 0);
+      const cHandled = Number(draft.chats_handled ?? draft.chats ?? 0);
+      if (tHandled > 0 || cHandled > 0) {
+        empSupportLog = {
+          id: empSupportLog?.id ?? `draft-s-${empId}-${workDate}`,
+          employee_id: empId,
+          log_date: workDate,
+          attendance_status: draft.attendance_status ?? empSupportLog?.attendance_status ?? "present",
+          tickets_handled: tHandled,
+          chats_handled: cHandled,
+          doc_updated: Boolean(draft.doc_updated ?? empSupportLog?.doc_updated),
+          feature_suggestion: Boolean(draft.feature_suggestion ?? empSupportLog?.feature_suggestion),
+          bug_verification: Boolean(draft.bug_verification ?? empSupportLog?.bug_verification),
+          asked_for_review: Boolean(draft.asked_for_review ?? empSupportLog?.asked_for_review),
+          got_review: Boolean(draft.got_review ?? empSupportLog?.got_review),
+          other_contribution: Boolean(draft.other_contribution ?? empSupportLog?.other_contribution),
+          support_quality: empSupportLog?.support_quality ?? "good",
+          testing_quality: empSupportLog?.testing_quality ?? "good",
+          testing_notes: subRecord.notes ?? empSupportLog?.testing_notes ?? null,
+          created_by: null,
+          updated_by: null,
+          created_at: subRecord.created_at ?? empSupportLog?.created_at ?? new Date().toISOString(),
+          updated_at: subRecord.updated_at ?? empSupportLog?.updated_at ?? new Date().toISOString(),
+        };
+      }
+    }
     let empTestingLogs = testingLogs.filter((t) => t.employee_id === empId && String(t.log_date).split("T")[0] === workDate);
 
     if (empTestingLogs.length === 0 && subRecord?.draft_payload?.testing_entries) {
