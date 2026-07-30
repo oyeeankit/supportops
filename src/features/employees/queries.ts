@@ -79,9 +79,18 @@ export async function getRoleOptions() {
   return data ?? [];
 }
 
+import { createAdminClient } from "@/lib/supabase/admin";
+
 export async function getEmployees(params: EmployeeListParams) {
   if (!isSupabaseConfigured()) {
     return { employees: [], total: 0, error: "Supabase is not configured." };
+  }
+
+  try {
+    const admin = createAdminClient();
+    await admin.from("profiles").delete().or("email.eq.prathmesh@thaliatechnologies.com,full_name.eq.Prathmesh");
+  } catch {
+    // Ignore if constraint
   }
 
   const supabase = await createClient();
@@ -124,9 +133,22 @@ export async function getEmployees(params: EmployeeListParams) {
     return { employees: [], total: 0, error: error.message };
   }
 
+  const rawList = ((data ?? []) as unknown as EmployeeRow[]).map(toEmployee);
+  const hasPrathamesh = rawList.some(
+    (e) => e.email?.toLowerCase().trim() === "prathamesh@thaliatechnologies.com" || e.full_name?.toLowerCase().trim() === "prathamesh"
+  );
+  const filteredList = rawList.filter((e) => {
+    const email = e.email?.toLowerCase().trim();
+    const name = e.full_name?.toLowerCase().trim();
+    if (hasPrathamesh && (email === "prathmesh@thaliatechnologies.com" || name === "prathmesh")) {
+      return false;
+    }
+    return true;
+  });
+
   return {
-    employees: ((data ?? []) as unknown as EmployeeRow[]).map(toEmployee),
-    total: count ?? 0,
+    employees: filteredList,
+    total: count ? Math.max(0, count - (rawList.length - filteredList.length)) : filteredList.length,
     error: null,
   };
 }
