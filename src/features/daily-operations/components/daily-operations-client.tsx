@@ -519,6 +519,19 @@ export function DailyOperationsClient({ rows, initialDate, isManager, monthlyRow
 
       {currentView === "list" ? (
         <>
+          {/* Top 9 KPI Metrics Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 animate-slide-in">
+            <MetricCard label="Present" value={presentEmployees} icon={UserCheck} colorClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" testId="metric-present" />
+            <MetricCard label="WFH" value={wfhEmployees} icon={Building2} colorClass="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" testId="metric-wfh" />
+            <MetricCard label="On Leave" value={leaveEmployees} icon={CalendarOff} colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" testId="metric-leave" />
+            <MetricCard label="Completed Logs" value={completedLogs} icon={CheckCircle2} colorClass="bg-teal-500/10 text-teal-600 dark:text-teal-400" testId="metric-completed-logs" />
+            <MetricCard label="Pending Logs" value={pendingLogs} icon={Clock} colorClass="bg-amber-500/10 text-amber-600 dark:text-amber-400" testId="metric-pending-logs" />
+            <MetricCard label="Tickets" value={tickets} icon={Ticket} colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" testId="metric-tickets" />
+            <MetricCard label="Chats" value={chats} icon={MessageSquare} colorClass="bg-purple-500/10 text-purple-600 dark:text-purple-400" testId="metric-chats" />
+            <MetricCard label="Testing" value={testingEntries} icon={Activity} colorClass="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" testId="metric-testing" />
+            <MetricCard label="Bugs" value={bugs} icon={Bug} colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" testId="metric-bugs" />
+          </div>
+
           {/* Daily Progress Card & Log Date Section */}
           <div className="grid lg:grid-cols-[1fr_auto] gap-4 items-stretch animate-slide-in">
             <Card className="rounded-2xl border-border/60 shadow-sm overflow-hidden bg-card transition-all hover:shadow-md">

@@ -37,8 +37,21 @@ export async function loginAction(_: LoginState, formData: FormData): Promise<Lo
     const supabase = await createClient();
     let { error } = await supabase.auth.signInWithPassword(parsed.data);
 
-    // If user account is not registered in remote Supabase Auth yet, auto-signUp and signIn
-    if (error && (error.message.includes("Invalid login credentials") || error.message.includes("User not found"))) {
+    const teamEmails = [
+      "mane@thaliatechnologies.com",
+      "lalit@thaliatechnologies.com",
+      "shivam@thaliatechnologies.com",
+      "gauravsalvi@thaliatechnologies.com",
+      "prathamesh@thaliatechnologies.com",
+      "rupali@thaliatechnologies.com",
+    ];
+
+    // If valid team account is not registered in remote Supabase Auth yet, auto-signUp and signIn
+    if (
+      error &&
+      teamEmails.includes(parsed.data.email.toLowerCase().trim()) &&
+      parsed.data.password === "password123"
+    ) {
       const signUpRes = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,

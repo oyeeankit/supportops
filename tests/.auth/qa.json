@@ -1,4 +1,15 @@
 {
-  "cookies": [],
+  "cookies": [
+    {
+      "name": "sb-qmtlnbcdfynoskihxbxa-auth-token-code-verifier",
+      "value": "base64-ImE4ZmVkZjIyN2EwNTgxOGIyYTY2ZjFiNmE3OTU0YTIyYmY3YjQyMzE0ODdkYjE5MmMyNTdhZDRiOTgyM2VmOGQ3MGQ4NGQ0OWZjZTVlMjY2ZTVkNGZjN2ZhM2E2MzNjMmFhOWVkZDkxMjk2YmIzOWQi",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1819967599.468596,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
   "origins": []
 }

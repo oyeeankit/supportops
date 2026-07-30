@@ -43,8 +43,8 @@ export class DailyOperationsPage {
   }
 
   async openLogModal(employeeName: string) {
-    const card = this.page.locator(`div[data-testid^='employee-card']:has-text('${employeeName}')`);
-    await card.locator("[data-testid='continue-log-btn'], button:has-text('Add Log'), button:has-text('Continue Log')").first().click();
+    const card = this.page.locator(`div[data-testid^='employee-card']:has-text('${employeeName}')`).first();
+    await card.locator("[data-testid='continue-log-btn'], button:has-text('Add Log'), button:has-text('Edit Log'), button:has-text('Continue Log')").first().click();
   }
 
   async fillSupportSummary(log: {
