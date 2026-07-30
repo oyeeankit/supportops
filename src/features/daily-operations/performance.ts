@@ -34,8 +34,14 @@ export const starRatingStars: Record<StarRating, string> = {
 // ---------------------------------------------------------------------------
 export const MONTHLY_WEIGHTS = {
   support: 0.5, // 50%
-  testing: 0.4, // 40%
-  manager: 0.1, // 10%
+  testing: 0.3, // 30%
+  manager: 0.2, // 20%
+} as const;
+
+export const QA_MONTHLY_WEIGHTS = {
+  support: 0.0, // 0%
+  testing: 0.8, // 80%
+  manager: 0.2, // 20%
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -130,9 +136,9 @@ export function getStarRating(score: number): { rating: StarRating; label: strin
 // ---------------------------------------------------------------------------
 // Final Monthly Score (1-5)
 // ---------------------------------------------------------------------------
-// Support = 50%, Testing = 40%, Manager = 10%
-// If a person doesn't do testing (testingEnabled=false), we re-distribute the weight.
-// E.g., Support = 80%, Manager = 20%
+// Support Engineers: Support = 50%, Testing = 30%, Manager = 20%
+// QA Engineers (or Testing-only): Support = 0%, Testing = 80%, Manager = 20%
+// Support-only: Support = 80%, Testing = 0%, Manager = 20%
 // ---------------------------------------------------------------------------
 export function calculateMonthlyFinalScore(
   supportScore: number,
@@ -140,21 +146,22 @@ export function calculateMonthlyFinalScore(
   managerScore: number,
   hasSupport: boolean,
   hasTesting: boolean,
+  role: AppRole = "support_engineer"
 ): number {
   if (!hasSupport && !hasTesting) return managerScore;
   
-  if (hasSupport && hasTesting) {
-    return round(supportScore * MONTHLY_WEIGHTS.support + testingScore * MONTHLY_WEIGHTS.testing + managerScore * MONTHLY_WEIGHTS.manager, 2);
+  if (role === "qa_engineer" || (!hasSupport && hasTesting)) {
+    return round(testingScore * QA_MONTHLY_WEIGHTS.testing + managerScore * QA_MONTHLY_WEIGHTS.manager, 2);
   }
   if (hasSupport && !hasTesting) {
-    // Redistribute 40% testing weight. Let's make it 80/20 for simplicity.
     return round(supportScore * 0.8 + managerScore * 0.2, 2);
   }
-  if (!hasSupport && hasTesting) {
-    // Redistribute 50% support weight. Let's make it 80/20.
-    return round(testingScore * 0.8 + managerScore * 0.2, 2);
-  }
-  return managerScore;
+  return round(
+    supportScore * MONTHLY_WEIGHTS.support +
+    testingScore * MONTHLY_WEIGHTS.testing +
+    managerScore * MONTHLY_WEIGHTS.manager,
+    2
+  );
 }
 
 // ---------------------------------------------------------------------------

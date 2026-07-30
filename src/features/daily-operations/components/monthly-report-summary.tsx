@@ -21,11 +21,11 @@ const getAvatarConfig = (name: string, fallbackUrl?: string | null): AvatarConfi
   if (normalized.includes("lalit")) {
     return { image: "/avatars/lalit_photo.png" };
   }
-  return { image: fallbackUrl || "/avatars/default.png" };
+  return { image: fallbackUrl || "/avatars/default.svg" };
 };
 
 export function MonthlyReportSummary({ summary, rows }: Props) {
-  const [fireworks, setFireworks] = React.useState<{ id: number; x: number; y: number; particles: any[] }[]>([]);
+  const [fireworks, setFireworks] = React.useState<{ id: string; x: number; y: number; particles: any[] }[]>([]);
 
   // Retrieve all three top performers
   const overallRow = React.useMemo(() => rows.find((r) => r.full_name === summary.overallBestPerformer) ?? null, [summary.overallBestPerformer, rows]);
@@ -64,7 +64,7 @@ export function MonthlyReportSummary({ summary, rows }: Props) {
         });
 
         const newExplosion = {
-          id: Date.now() + idx,
+          id: `firework-${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${idx}`,
           x,
           y,
           particles: sparks,
@@ -107,7 +107,7 @@ export function MonthlyReportSummary({ summary, rows }: Props) {
                   >
                     {exp.particles.map((p) => (
                       <div
-                        key={p.id}
+                        key={`${exp.id}-p-${p.id}`}
                         style={{
                           position: "absolute",
                           width: `${p.size}px`,

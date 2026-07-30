@@ -127,6 +127,17 @@ export function MonthlyReportClient({ rows, summary, selectedMonth, selectedYear
 
       <MonthlyReportSummary summary={summary} rows={rows} />
 
+      {/* Score Weightage Breakdown Banner */}
+      <div className="flex flex-wrap items-center gap-3 bg-muted/40 border border-border/80 rounded-xl px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+        <span className="font-extrabold text-foreground">Score Weightages:</span>
+        <span className="bg-background px-2.5 py-1 rounded-lg border border-border/60 shadow-xs">
+          <strong className="text-foreground">Support Engineers:</strong> 50% Support + 30% Testing + 20% Manager
+        </span>
+        <span className="bg-background px-2.5 py-1 rounded-lg border border-border/60 shadow-xs">
+          <strong className="text-foreground">QA Engineers:</strong> 0% Support + 80% Testing + 20% Manager
+        </span>
+      </div>
+
       <MonthlyReportTable
         data={rows}
         search={search}

@@ -120,6 +120,28 @@ export async function submitDailyReportAction(
     testingEntriesRaw = [];
   }
 
+  if (!Array.isArray(testingEntriesRaw) || testingEntriesRaw.length === 0) {
+    return {
+      message: "Please add at least one testing activity entry (Select 'No Testing Assigned' if no testing was assigned today).",
+    };
+  }
+
+  for (const entry of testingEntriesRaw) {
+    const appName = String(entry.application_name ?? "").trim();
+    const modName = String(entry.module_name ?? "").trim();
+
+    if (!appName) {
+      return {
+        message: "Testing App is required for all testing activities. Select 'No Testing Assigned' if no testing was assigned today.",
+      };
+    }
+    if (!modName) {
+      return {
+        message: "Module / Feature is required for all testing activities. Select a module or 'No Testing Assigned' if no testing was assigned today.",
+      };
+    }
+  }
+
   const validatedEntries = testingEntriesRaw
     .map((e) => testingEntrySchema.safeParse(e))
     .filter((r) => r.success)
@@ -397,6 +419,28 @@ export async function submitPublicDailyReportAction(
     testingEntriesRaw = JSON.parse(raw);
   } catch {
     testingEntriesRaw = [];
+  }
+
+  if (!Array.isArray(testingEntriesRaw) || testingEntriesRaw.length === 0) {
+    return {
+      message: "Please add at least one testing activity entry (Select 'No Testing Assigned' if no testing was assigned today).",
+    };
+  }
+
+  for (const entry of testingEntriesRaw) {
+    const appName = String(entry.application_name ?? "").trim();
+    const modName = String(entry.module_name ?? "").trim();
+
+    if (!appName) {
+      return {
+        message: "Testing App is required for all testing activities. Select 'No Testing Assigned' if no testing was assigned today.",
+      };
+    }
+    if (!modName) {
+      return {
+        message: "Module / Feature is required for all testing activities. Select a module or 'No Testing Assigned' if no testing was assigned today.",
+      };
+    }
   }
 
   const combinedNotes = [

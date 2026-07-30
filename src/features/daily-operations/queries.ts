@@ -542,7 +542,7 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
     // Check if employee did any real work this month
     const didSupport = avgSupport > 0;
     const didTesting = avgTesting > 0;
-    const finalScore = calculateMonthlyFinalScore(avgSupport, avgTesting, managerScore, didSupport, didTesting);
+    const finalScore = calculateMonthlyFinalScore(avgSupport, avgTesting, managerScore, didSupport, didTesting, role as AppRole);
     const { rating, label } = getStarRating(finalScore);
 
     const appsTested = new Set(empTestingLogs.map((l) => l.application_name).filter((n) => n && n !== "No Testing Assigned"));

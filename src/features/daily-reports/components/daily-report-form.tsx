@@ -471,15 +471,20 @@ export function DailyReportForm({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label className="text-[11px] font-bold text-muted-foreground">Testing App</Label>
+                  <Label className="text-[11px] font-bold text-muted-foreground">
+                    Testing App <span className="text-rose-500 font-extrabold">*</span>
+                  </Label>
                   <Select
+                    required
                     value={entry.application_name}
                     onChange={(e) => {
                       const val = e.target.value;
                       const platform = (platformForApp[val] ?? "shopify") as TestingPlatform;
+                      const isNoTesting = val === "No Testing Assigned";
                       updateTestingEntry(entry.id, {
                         application_name: val,
                         platform: platform,
+                        module_name: isNoTesting ? "No Testing Assigned" : (entry.module_name === "No Testing Assigned" ? "" : entry.module_name),
                       });
                     }}
                     className="mt-1 rounded-xl text-xs font-semibold h-10 border-border bg-background text-foreground shadow-sm"
@@ -502,13 +507,19 @@ export function DailyReportForm({
                 </div>
 
                 <div>
-                  <Label className="text-[11px] font-bold text-muted-foreground">Module / Feature</Label>
+                  <Label className="text-[11px] font-bold text-muted-foreground">
+                    Module / Feature <span className="text-rose-500 font-extrabold">*</span>
+                  </Label>
                   <Select
+                    required
                     value={entry.module_name || ""}
                     onChange={(e) => updateTestingEntry(entry.id, "module_name", e.target.value)}
-                    className="mt-1 rounded-xl text-xs font-semibold h-10 border-border"
+                    className="mt-1 rounded-xl text-xs font-semibold h-10 border-border bg-background text-foreground shadow-sm"
                   >
                     <option value="">Select module...</option>
+                    {entry.application_name === "No Testing Assigned" && (
+                      <option value="No Testing Assigned">No Testing Assigned</option>
+                    )}
                     {testingModulesList.map((mod) => (
                       <option key={mod} value={mod}>
                         {mod}

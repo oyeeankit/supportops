@@ -585,15 +585,20 @@ export function PublicReportForm() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-[11px] font-bold text-muted-foreground">Testing App</Label>
+                      <Label className="text-[11px] font-bold text-muted-foreground">
+                        Testing App <span className="text-rose-500 font-extrabold">*</span>
+                      </Label>
                       <Select
+                        required
                         value={row.application_name}
                         onChange={(e) => {
                           const val = e.target.value;
                           const platform = platformForApp[val] ?? "shopify";
+                          const isNoTesting = val === "No Testing Assigned";
                           updateTestingRow(row.id, {
                             application_name: val,
                             platform: platform,
+                            module_name: isNoTesting ? "No Testing Assigned" : (row.module_name === "No Testing Assigned" ? "" : row.module_name),
                           });
                         }}
                         className="h-10 text-xs font-semibold rounded-xl border-border mt-1 bg-background text-foreground shadow-sm"
@@ -616,13 +621,19 @@ export function PublicReportForm() {
                     </div>
 
                     <div>
-                      <Label className="text-[11px] font-bold text-muted-foreground">Module / Feature</Label>
+                      <Label className="text-[11px] font-bold text-muted-foreground">
+                        Module / Feature <span className="text-rose-500 font-extrabold">*</span>
+                      </Label>
                       <Select
+                        required
                         value={row.module_name || ""}
                         onChange={(e) => updateTestingRow(row.id, "module_name", e.target.value)}
-                        className="h-10 text-xs font-semibold rounded-xl border-border mt-1"
+                        className="h-10 text-xs font-semibold rounded-xl border-border mt-1 bg-background text-foreground shadow-sm"
                       >
                         <option value="">Select module...</option>
+                        {row.application_name === "No Testing Assigned" && (
+                          <option value="No Testing Assigned">No Testing Assigned</option>
+                        )}
                         {testingModulesList.map((mod) => (
                           <option key={mod} value={mod}>
                             {mod}
