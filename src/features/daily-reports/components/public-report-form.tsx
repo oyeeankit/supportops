@@ -10,11 +10,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { appSelectGroups, testingModulesList } from "@/features/daily-operations/components/daily-operations-modal";
+import { platformForApp } from "@/features/daily-operations/types";
 import {
   Plus,
   Trash2,
   TestTube,
-  Headphones
+  Headphones,
+  ArrowUp,
+  ArrowDown,
+  Copy,
+  Minus
 } from "lucide-react";
 
 function SubmitButton({ isQARole, hasEmail }: { isQARole: boolean; hasEmail: boolean }) {
@@ -47,7 +54,7 @@ const PRESET_TEAM_EMAILS = [
   { name: "Lalit (Support Engineer)", email: "lalit@thaliatechnologies.com" },
   { name: "Gaurav (Support Engineer)", email: "gauravsalvi@thaliatechnologies.com" },
   { name: "Rupali (Support Engineer)", email: "rupali@thaliatechnologies.com" },
-  { name: "Prathmesh (Support Engineer)", email: "prathmesh@thaliatechnologies.com" },
+  { name: "Prathamesh (Support Engineer)", email: "prathamesh@thaliatechnologies.com" },
   { name: "Shivam (QA Engineer)", email: "shivam@thaliatechnologies.com" },
 ];
 
@@ -57,6 +64,8 @@ type TestingRow = {
   custom_platform?: string;
   application_name: string;
   module_name: string;
+  testing_type: string;
+  status: string;
   bugs_found: number;
   critical_bug: boolean;
 };
@@ -102,6 +111,8 @@ export function PublicReportForm() {
         custom_platform: "",
         application_name: "",
         module_name: "",
+        testing_type: "functional",
+        status: "completed",
         bugs_found: 0,
         critical_bug: false,
       },
@@ -504,52 +515,139 @@ export function PublicReportForm() {
           ) : (
             <div className="space-y-4">
               {testingEntries.map((row, idx) => (
-                <div key={row.id} className="p-4 border border-border bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl space-y-4 text-xs">
+                <div key={row.id} className="p-4 border border-border/70 bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl space-y-4 text-xs">
                   <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                    <span className="font-extrabold text-foreground text-xs">Testing Activity #{idx + 1}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeTestingRow(row.id)}
-                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 h-7 px-2.5 rounded-lg font-bold"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Remove Entry
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-950 text-[10px] font-bold text-violet-700 dark:text-violet-300">
+                        {idx + 1}
+                      </span>
+                      <span className="font-extrabold text-foreground text-xs">Testing Activity</span>
+                    </div>
+                    <div className="flex items-center gap-1 bg-card border border-border/50 p-1 rounded-lg shadow-sm">
+                      {idx > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const updated = [...testingEntries];
+                            [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
+                            setTestingEntries(updated);
+                          }}
+                          className="h-6 w-6 p-0 rounded hover:bg-slate-100"
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {idx < testingEntries.length - 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const updated = [...testingEntries];
+                            [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
+                            setTestingEntries(updated);
+                          }}
+                          className="h-6 w-6 p-0 rounded hover:bg-slate-100"
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setTestingEntries([...testingEntries, { ...row, id: String(Date.now()) }]);
+                        }}
+                        className="h-6 w-6 p-0 rounded hover:bg-slate-100"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeTestingRow(row.id)}
+                        className="h-6 w-6 p-0 rounded text-rose-600 hover:bg-rose-50"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-[11px] font-bold text-muted-foreground">Testing App</Label>
+                      <Select
+                        value={row.application_name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const platform = platformForApp[val] ?? "shopify";
+                          updateTestingRow(row.id, "application_name", val);
+                          updateTestingRow(row.id, "platform", platform);
+                        }}
+                        className="h-10 text-xs font-semibold rounded-xl border-border mt-1 bg-background text-foreground shadow-sm"
+                      >
+                        <option value="">Select Testing App...</option>
+                        {appSelectGroups.map((group) => (
+                          <optgroup key={group.label} label={group.label}>
+                            {group.options.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-[11px] font-bold text-muted-foreground">Module / Feature</Label>
+                      <Select
+                        value={row.module_name || ""}
+                        onChange={(e) => updateTestingRow(row.id, "module_name", e.target.value)}
+                        className="h-10 text-xs font-semibold rounded-xl border-border mt-1"
+                      >
+                        <option value="">Select module...</option>
+                        {testingModulesList.map((mod) => (
+                          <option key={mod} value={mod}>
+                            {mod}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <Label className="text-[11px] font-bold text-muted-foreground">Platform</Label>
+                      <Label className="text-[11px] font-bold text-muted-foreground">Testing Type</Label>
                       <Select
-                        value={row.platform}
-                        onChange={(e) => updateTestingRow(row.id, "platform", e.target.value)}
+                        value={row.testing_type || "functional"}
+                        onChange={(e) => updateTestingRow(row.id, "testing_type", e.target.value)}
                         className="h-10 text-xs font-semibold rounded-xl border-border mt-1"
                       >
-                        <option value="shopify">Shopify</option>
-                        <option value="ecommerce">E-commerce</option>
-                        <option value="wix">Wix</option>
-                        <option value="csv">CSV Integration</option>
-                        <option value="custom">+ Custom Platform</option>
+                        <option value="functional">Functional Testing</option>
+                        <option value="regression">Regression Testing</option>
+                        <option value="integration">Integration Testing</option>
+                        <option value="smoke">Smoke Testing</option>
+                        <option value="sanity">Sanity Testing</option>
                       </Select>
-                      {row.platform === "custom" && (
-                        <Input
-                          placeholder="Enter Platform Name"
-                          value={row.custom_platform || ""}
-                          onChange={(e) => updateTestingRow(row.id, "custom_platform", e.target.value)}
-                          className="mt-2 h-9 text-xs rounded-xl border-border"
-                        />
-                      )}
                     </div>
 
                     <div>
-                      <Label className="text-[11px] font-bold text-muted-foreground">App / Extension Name</Label>
-                      <Input
-                        placeholder="e.g. Order Tracker"
-                        value={row.application_name}
-                        onChange={(e) => updateTestingRow(row.id, "application_name", e.target.value)}
+                      <Label className="text-[11px] font-bold text-muted-foreground">Status</Label>
+                      <Select
+                        value={row.status || "completed"}
+                        onChange={(e) => updateTestingRow(row.id, "status", e.target.value)}
                         className="h-10 text-xs font-semibold rounded-xl border-border mt-1"
-                      />
+                      >
+                        <option value="completed">Completed</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="blocked">Blocked</option>
+                        <option value="on_hold">On Hold</option>
+                      </Select>
                     </div>
 
                     <div>

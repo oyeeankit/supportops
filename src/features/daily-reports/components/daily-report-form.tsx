@@ -23,11 +23,18 @@ import {
   ArrowLeft,
   FileText,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  ArrowUp,
+  ArrowDown,
+  Copy,
+  Minus
 } from "lucide-react";
 import { submitDailyReportAction, saveDailyReportDraftAction } from "../actions";
 import { getAvailableWorkDates, checkShiftReportingWindow } from "../utils/shift-rules";
 import { AttachmentUploader } from "./attachment-uploader";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { appSelectGroups, testingModulesList } from "@/features/daily-operations/components/daily-operations-modal";
+import { platformForApp } from "@/features/daily-operations/types";
 import type { UserProfile } from "@/lib/auth/roles";
 import type { AttendanceStatus, TestingType, TestingStatus, TestingPlatform, Shift } from "../../daily-operations/types";
 
@@ -391,111 +398,163 @@ export function DailyReportForm({
           {testingEntries.map((entry, index) => (
             <div
               key={entry.id}
-              className="p-4 rounded-xl border border-border/60 bg-slate-50/30 dark:bg-slate-900/10 space-y-3 relative group"
+              className="p-4 rounded-xl border border-border/70 bg-slate-50/30 dark:bg-slate-900/10 space-y-4 relative group text-xs"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">
-                  Testing Entry #{index + 1}
-                </span>
-                {testingEntries.length > 1 && (
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-950 text-[10px] font-bold text-violet-700 dark:text-violet-300">
+                    {index + 1}
+                  </span>
+                  <span className="font-extrabold text-foreground text-xs">Testing Activity</span>
+                </div>
+                <div className="flex items-center gap-1 bg-card border border-border/50 p-1 rounded-lg shadow-sm">
+                  {index > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const updated = [...testingEntries];
+                        [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+                        setTestingEntries(updated);
+                      }}
+                      className="h-6 w-6 p-0 rounded hover:bg-slate-100"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {index < testingEntries.length - 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const updated = [...testingEntries];
+                        [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+                        setTestingEntries(updated);
+                      }}
+                      className="h-6 w-6 p-0 rounded hover:bg-slate-100"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-xs text-rose-600 hover:bg-rose-50"
-                    onClick={() => removeTestingEntry(entry.id)}
+                    onClick={() => {
+                      setTestingEntries([...testingEntries, { ...entry, id: String(Date.now()) }]);
+                    }}
+                    className="h-6 w-6 p-0 rounded hover:bg-slate-100"
                   >
-                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Remove
+                    <Copy className="h-3.5 w-3.5" />
                   </Button>
-                )}
+                  {testingEntries.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeTestingEntry(entry.id)}
+                      className="h-6 w-6 p-0 rounded text-rose-600 hover:bg-rose-50"
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label className="text-[11px] font-bold">Platform</Label>
+                  <Label className="text-[11px] font-bold text-muted-foreground">Testing App</Label>
                   <Select
-                    value={entry.platform}
-                    onChange={(e) => updateTestingEntry(entry.id, "platform", e.target.value)}
-                    className="mt-1 rounded-xl text-xs"
+                    value={entry.application_name}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const platform = (platformForApp[val] ?? "shopify") as TestingPlatform;
+                      updateTestingEntry(entry.id, "application_name", val);
+                      updateTestingEntry(entry.id, "platform", platform);
+                    }}
+                    className="mt-1 rounded-xl text-xs font-semibold h-10 border-border bg-background text-foreground shadow-sm"
                   >
-                    <option value="shopify">Shopify</option>
-                    <option value="woocommerce">WooCommerce</option>
-                    <option value="magento">Magento</option>
-                    <option value="custom">Custom</option>
+                    <option value="">Select Testing App...</option>
+                    {appSelectGroups.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.options.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
                   </Select>
                 </div>
 
                 <div>
-                  <Label className="text-[11px] font-bold">Application Name</Label>
-                  <Input
-                    type="text"
-                    value={entry.application_name}
-                    onChange={(e) => updateTestingEntry(entry.id, "application_name", e.target.value)}
-                    placeholder="e.g. Bolt"
-                    className="mt-1 rounded-xl text-xs font-semibold"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-bold">Module / Feature</Label>
-                  <Input
-                    type="text"
-                    value={entry.module_name}
+                  <Label className="text-[11px] font-bold text-muted-foreground">Module / Feature</Label>
+                  <Select
+                    value={entry.module_name || ""}
                     onChange={(e) => updateTestingEntry(entry.id, "module_name", e.target.value)}
-                    placeholder="e.g. Checkout Flow"
-                    className="mt-1 rounded-xl text-xs font-semibold"
-                  />
+                    className="mt-1 rounded-xl text-xs font-semibold h-10 border-border"
+                  >
+                    <option value="">Select module...</option>
+                    {testingModulesList.map((mod) => (
+                      <option key={mod} value={mod}>
+                        {mod}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
+              </div>
 
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div>
-                  <Label className="text-[11px] font-bold">Testing Type</Label>
+                  <Label className="text-[11px] font-bold text-muted-foreground">Testing Type</Label>
                   <Select
                     value={entry.testing_type}
-                    onChange={(e) => updateTestingEntry(entry.id, "testing_type", e.target.value)}
-                    className="mt-1 rounded-xl text-xs"
+                    onChange={(e) => updateTestingEntry(entry.id, "testing_type", e.target.value as any)}
+                    className="mt-1 rounded-xl text-xs h-10 border-border"
                   >
-                    <option value="functional">Functional</option>
-                    <option value="regression">Regression</option>
-                    <option value="bug_verification">Bug Verification</option>
-                    <option value="exploratory">Exploratory</option>
+                    <option value="functional">Functional Testing</option>
+                    <option value="regression">Regression Testing</option>
+                    <option value="integration">Integration Testing</option>
+                    <option value="smoke">Smoke Testing</option>
+                    <option value="sanity">Sanity Testing</option>
                   </Select>
                 </div>
-              </div>
 
-              <div className="grid gap-3 sm:grid-cols-3 items-center">
                 <div>
-                  <Label className="text-[11px] font-bold">Bugs Found</Label>
+                  <Label className="text-[11px] font-bold text-muted-foreground">Status</Label>
+                  <Select
+                    value={entry.status}
+                    onChange={(e) => updateTestingEntry(entry.id, "status", e.target.value as any)}
+                    className="mt-1 rounded-xl text-xs h-10 border-border"
+                  >
+                    <option value="completed">Completed</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="on_hold">On Hold</option>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-bold text-muted-foreground">Bugs Found</Label>
                   <Input
                     type="number"
                     min="0"
                     value={entry.bugs_found}
                     onChange={(e) => updateTestingEntry(entry.id, "bugs_found", Number(e.target.value))}
-                    className="mt-1 rounded-xl text-xs font-semibold"
+                    className="mt-1 rounded-xl text-xs font-bold h-10 border-border"
                   />
                 </div>
-
-                <div>
-                  <Label className="text-[11px] font-bold">Status</Label>
-                  <Select
-                    value={entry.status}
-                    onChange={(e) => updateTestingEntry(entry.id, "status", e.target.value)}
-                    className="mt-1 rounded-xl text-xs"
-                  >
-                    <option value="completed">Completed</option>
-                    <option value="in_progress">In Progress</option>
-                  </Select>
-                </div>
-
-                <div className="pt-4">
-                  <label className="flex items-center gap-2 text-xs font-bold text-rose-600 cursor-pointer">
-                    <Checkbox
-                      checked={entry.critical_bug}
-                      onCheckedChange={(c) => updateTestingEntry(entry.id, "critical_bug", Boolean(c))}
-                    />
-                    <span>Critical Bug Discovered</span>
-                  </label>
-                </div>
               </div>
+
+              <label className="flex items-center gap-2 text-xs font-extrabold text-rose-600 cursor-pointer pt-1">
+                <Checkbox
+                  checked={entry.critical_bug}
+                  onCheckedChange={(c) => updateTestingEntry(entry.id, "critical_bug", Boolean(c))}
+                />
+                <span>🚨 Critical Bug Flagged (Requires Manager Attention)</span>
+              </label>
             </div>
           ))}
           <Button

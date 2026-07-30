@@ -58,7 +58,7 @@ from (
     ('Lalit', 'lalit@thaliatechnologies.com', 'support_engineer', 'day', 'active'),
     ('Gaurav', 'gauravsalvi@thaliatechnologies.com', 'support_engineer', 'morning', 'active'),
     ('Rupali', 'rupali@thaliatechnologies.com', 'support_engineer', 'evening', 'active'),
-    ('Prathmesh', 'prathmesh@thaliatechnologies.com', 'support_engineer', 'day', 'active'),
+    ('Prathamesh', 'prathamesh@thaliatechnologies.com', 'support_engineer', 'day', 'active'),
     ('Shivam', 'shivam@thaliatechnologies.com', 'qa_engineer', 'day', 'active')
 ) as p(full_name, email, role, shift, employment_status)
 left join public.roles r on r.name = p.role

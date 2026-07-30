@@ -126,13 +126,13 @@ export function SearchableSelect({
         disabled={disabled}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-10 w-full items-center justify-between rounded-xl border border-border/80 bg-background px-3 py-2 text-xs font-semibold text-foreground shadow-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer",
         )}
       >
-        <span className={cn("truncate", !selectedLabel && "text-muted-foreground")}>
+        <span className={cn("truncate", !selectedLabel && "text-muted-foreground font-normal")}>
           {selectedLabel || placeholder}
         </span>
-        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
       </button>
 
       {open && mounted
@@ -140,28 +140,28 @@ export function SearchableSelect({
             <div
               ref={dropdownRef}
               style={dropdownStyle}
-              className="max-h-80 overflow-hidden rounded-xl border border-border bg-slate-900 text-slate-100 dark:bg-slate-900 dark:text-slate-100 shadow-2xl z-[99999]"
+              className="max-h-80 overflow-hidden rounded-xl border border-border/80 bg-popover text-popover-foreground shadow-2xl z-[99999]"
             >
-              <div className="flex items-center border-b border-border px-3">
-                <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+              <div className="flex items-center border-b border-border/60 px-3 bg-muted/20">
+                <Search className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <input
                   ref={inputRef}
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search..."
-                  className="h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  placeholder="Search app..."
+                  className="h-9 w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
                 />
               </div>
-              <div className="max-h-64 overflow-y-auto">
+              <div className="max-h-64 overflow-y-auto p-1.5 space-y-1">
                 {filteredGroups.length === 0 ? (
-                  <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-                    No results found.
+                  <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                    No matching app found.
                   </p>
                 ) : (
                   filteredGroups.map((group) => (
-                    <div key={group.label}>
-                      <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div key={group.label} className="py-1">
+                      <p className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
                         {group.label}
                       </p>
                       {group.options.map((opt) => (
@@ -170,13 +170,13 @@ export function SearchableSelect({
                           type="button"
                           onClick={() => handleSelect(opt.value)}
                           className={cn(
-                            "flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-accent",
-                            opt.value === value && "font-medium",
+                            "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer",
+                            opt.value === value && "bg-slate-100 dark:bg-slate-800 font-bold text-foreground",
                           )}
                         >
                           <span className="truncate">{opt.label}</span>
                           {opt.value === value ? (
-                            <Check className="ml-2 h-4 w-4 shrink-0" />
+                            <Check className="ml-2 h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
                           ) : null}
                         </button>
                       ))}

@@ -48,7 +48,7 @@ const initialState: DailyOperationActionState = {};
 
 // Build grouped options for the SearchableSelect from the app catalogue.
 // "Support Only" (No Testing Assigned) always appears first.
-const appSelectGroups: SearchableGroup[] = testingPlatforms.map((platform) => ({
+export const appSelectGroups: SearchableGroup[] = testingPlatforms.map((platform) => ({
   label: platformLabels[platform] || platform,
   options: (appsByPlatform[platform] || []).map((app) => ({ value: app, label: app })),
 }));
@@ -572,7 +572,7 @@ function ModalFormBody({
   );
 }
 
-const testingModulesList = [
+export const testingModulesList = [
   "Authentication & Profile",
   "Dashboard Analytics",
   "Report Generation & Exports",
