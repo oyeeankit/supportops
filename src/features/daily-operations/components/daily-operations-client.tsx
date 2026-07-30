@@ -1055,16 +1055,11 @@ export function DailyOperationsClient({ rows, initialDate, isManager, monthlyRow
                     const mRows = monthlyRows || [];
                     let tCount = mRows.length;
                     for (const empRow of mRows) {
-                      const sLog = (empRow?.supportLogs || []).find((l) => l.log_date === dateStr);
-                      const tLogs = (empRow?.testingLogs || []).filter((l) => l.log_date === dateStr);
-                      const sOk = sLog
-                        ? sLog.attendance_status === "leave" ||
-                          (sLog.attendance_status as any) === "holiday" ||
-                          sLog.tickets_handled > 0 ||
-                          sLog.chats_handled > 0
-                        : false;
-                      const tOk = tLogs.length > 0 && tLogs.every((l) => l.status === "completed");
-                      if (sOk && tOk) cCount++;
+                      const sLog = (empRow?.supportLogs || []).find((l) => String(l.log_date).split("T")[0] === dateStr);
+                      const tLogs = (empRow?.testingLogs || []).filter((l) => String(l.log_date).split("T")[0] === dateStr);
+                      const hasSupportLog = Boolean(sLog);
+                      const hasTestingLog = tLogs.length > 0;
+                      if (hasSupportLog || hasTestingLog) cCount++;
                     }
                     badgeText = `${cCount} / ${tCount}`;
                     if (tCount > 0 && cCount === tCount) {
@@ -1082,7 +1077,8 @@ export function DailyOperationsClient({ rows, initialDate, isManager, monthlyRow
                     }
                   } else {
                     const empRow = (monthlyRows || []).find((r) => r.employee_id === calendarEmployeeId);
-                    const sLog = (empRow?.supportLogs || []).find((l) => l.log_date === dateStr);
+                    const sLog = (empRow?.supportLogs || []).find((l) => String(l.log_date).split("T")[0] === dateStr);
+                    const tLogs = (empRow?.testingLogs || []).filter((l) => String(l.log_date).split("T")[0] === dateStr);
                     const isLeave =
                       sLog?.attendance_status === "leave" ||
                       (sLog?.attendance_status as any) === "holiday";
@@ -1091,7 +1087,7 @@ export function DailyOperationsClient({ rows, initialDate, isManager, monthlyRow
                         "border-blue-200/80 bg-blue-50/30 text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-300";
                       dotColor = "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]";
                       badgeText = "LEAVE";
-                    } else if (sLog) {
+                    } else if (sLog || tLogs.length > 0) {
                       cellClass =
                         "border-emerald-200/80 bg-emerald-50/30 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300";
                       dotColor = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]";
