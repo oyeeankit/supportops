@@ -184,10 +184,10 @@ export function ManagerSubmissions({
               </p>
               {selectedDate && (
                 <Button
-                  variant="link"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setSelectedDate("")}
-                  className="text-xs font-bold text-blue-600 dark:text-blue-400"
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Clear Date Filter to View All Submissions
                 </Button>
@@ -201,64 +201,82 @@ export function ManagerSubmissions({
                     <th className="px-6 py-3.5">Employee</th>
                     <th className="px-6 py-3.5">Shift</th>
                     <th className="px-6 py-3.5">Work Date</th>
-                    <th className="px-6 py-3.5">Submission Time</th>
+                    <th className="px-6 py-3.5">Tickets Closed</th>
+                    <th className="px-6 py-3.5">Chats Handled</th>
+                    <th className="px-6 py-3.5">QA Testing</th>
                     <th className="px-6 py-3.5">Status</th>
                     <th className="px-6 py-3.5 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
-                  {filteredSubmissions.map((sub) => (
-                    <tr key={sub.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-colors">
-                      <td className="px-6 py-4 font-bold text-foreground">
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-xs font-extrabold text-foreground">
-                            {sub.employee_name ? sub.employee_name.charAt(0) : "E"}
+                  {filteredSubmissions.map((sub) => {
+                    const tickets = sub.supportLog?.tickets_handled ?? 0;
+                    const chats = sub.supportLog?.chats_handled ?? 0;
+                    const testingCount = sub.testingLogs?.length ?? 0;
+
+                    return (
+                      <tr key={sub.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-colors">
+                        <td className="px-6 py-4 font-bold text-foreground">
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-xs font-extrabold text-foreground">
+                              {sub.employee_name ? sub.employee_name.charAt(0) : "E"}
+                            </div>
+                            <div>
+                              <p className="font-extrabold">{sub.employee_name}</p>
+                              <p className="text-[10px] text-muted-foreground font-medium">{sub.employee_email}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-extrabold">{sub.employee_name}</p>
-                            <p className="text-[10px] text-muted-foreground font-medium">{sub.employee_email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-xs font-bold capitalize text-muted-foreground">{sub.shift}</td>
-                      <td className="px-6 py-4 font-semibold">{sub.work_date}</td>
-                      <td className="px-6 py-4 text-xs text-muted-foreground font-medium">
-                        {sub.submitted_at ? new Date(sub.submitted_at).toLocaleTimeString() : "-"}
-                      </td>
-                      <td className="px-6 py-4">
-                        {sub.status === "submitted" && (
-                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px] font-extrabold uppercase">
-                            ✅ Submitted
-                          </Badge>
-                        )}
-                        {sub.status === "late" && (
-                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 text-[10px] font-extrabold uppercase">
-                            🟠 Late
-                          </Badge>
-                        )}
-                        {sub.status === "draft" && (
-                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 text-[10px] font-extrabold uppercase">
-                            🟡 Draft
-                          </Badge>
-                        )}
-                        {sub.status === "missing" && (
-                          <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 text-[10px] font-extrabold uppercase">
-                            🔴 Missing
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs font-bold rounded-lg cursor-pointer"
-                          onClick={() => setActiveSubmission(sub)}
-                        >
-                          <Eye className="h-3.5 w-3.5 mr-1" /> Inspect
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4 text-xs font-bold capitalize text-muted-foreground">{sub.shift}</td>
+                        <td className="px-6 py-4 font-semibold">{sub.work_date}</td>
+                        <td className="px-6 py-4 font-extrabold text-indigo-600 dark:text-indigo-400">
+                          <span className="flex items-center gap-1.5">
+                            <Ticket className="h-3.5 w-3.5 text-indigo-500" /> {tickets}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 font-extrabold text-pink-600 dark:text-pink-400">
+                          <span className="flex items-center gap-1.5">
+                            <MessageSquare className="h-3.5 w-3.5 text-pink-500" /> {chats}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-xs font-semibold text-violet-600 dark:text-violet-400">
+                          {testingCount > 0 ? `${testingCount} Entries` : "-"}
+                        </td>
+                        <td className="px-6 py-4">
+                          {sub.status === "submitted" && (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px] font-extrabold uppercase">
+                              ✅ Submitted
+                            </Badge>
+                          )}
+                          {sub.status === "late" && (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 text-[10px] font-extrabold uppercase">
+                              🟠 Late
+                            </Badge>
+                          )}
+                          {sub.status === "draft" && (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 text-[10px] font-extrabold uppercase">
+                              🟡 Draft
+                            </Badge>
+                          )}
+                          {sub.status === "missing" && (
+                            <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 text-[10px] font-extrabold uppercase">
+                              🔴 Missing
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs font-bold rounded-lg cursor-pointer"
+                            onClick={() => setActiveSubmission(sub)}
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" /> Inspect
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -289,7 +307,7 @@ export function ManagerSubmissions({
               </Button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="grid gap-3 grid-cols-2 p-4 rounded-xl border border-border/50 bg-slate-50/40 dark:bg-slate-900/20">
                 <div>
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">Submission Status</p>
@@ -300,6 +318,33 @@ export function ManagerSubmissions({
                   <p className="text-xs font-bold text-foreground">
                     {activeSubmission.submitted_at ? new Date(activeSubmission.submitted_at).toLocaleString() : "-"}
                   </p>
+                </div>
+              </div>
+
+              {/* Operational Output Metrics */}
+              <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/30 dark:bg-indigo-950/20 space-y-3">
+                <p className="text-xs font-extrabold text-indigo-950 dark:text-indigo-200 uppercase tracking-wider">
+                  📊 Recorded Metrics Logged
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 rounded-lg bg-background border border-indigo-200/60 dark:border-indigo-900/50">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Tickets Solved</p>
+                    <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">
+                      {activeSubmission.supportLog?.tickets_handled ?? 0}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-background border border-pink-200/60 dark:border-pink-900/50">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Chats Handled</p>
+                    <p className="text-lg font-black text-pink-600 dark:text-pink-400">
+                      {activeSubmission.supportLog?.chats_handled ?? 0}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-background border border-violet-200/60 dark:border-violet-900/50">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">QA Modules Tested</p>
+                    <p className="text-lg font-black text-violet-600 dark:text-violet-400">
+                      {activeSubmission.testingLogs?.length ?? 0}
+                    </p>
+                  </div>
                 </div>
               </div>
 

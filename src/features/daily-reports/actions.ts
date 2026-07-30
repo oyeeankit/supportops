@@ -118,21 +118,19 @@ export async function submitDailyReportAction(
     .map((r) => r.data!);
 
   // Upsert to ensure single entry per (employee_id, log_date) — prevents duplicates
-  if (supportParsed.data.attendance_status === "present" || supportParsed.data.attendance_status === "wfh") {
-    await supabase.from("daily_support_logs").upsert(
-      {
-        employee_id: profile.id,
-        log_date: workDate,
-        attendance_status: supportParsed.data.attendance_status,
-        tickets_handled: supportParsed.data.tickets_handled,
-        chats_handled: supportParsed.data.chats_handled,
-        notes: String(formData.get("notes") ?? ""),
-        created_by: profile.id,
-        updated_by: profile.id,
-      },
-      { onConflict: "employee_id,log_date" }
-    );
-  }
+  await supabase.from("daily_support_logs").upsert(
+    {
+      employee_id: profile.id,
+      log_date: workDate,
+      attendance_status: supportParsed.data.attendance_status,
+      tickets_handled: supportParsed.data.tickets_handled,
+      chats_handled: supportParsed.data.chats_handled,
+      notes: String(formData.get("notes") ?? ""),
+      created_by: profile.id,
+      updated_by: profile.id,
+    },
+    { onConflict: "employee_id,log_date" }
+  );
 
   await supabase
     .from("daily_testing_logs")
@@ -372,7 +370,7 @@ export async function submitPublicDailyReportAction(
   ].filter(Boolean).join("\n\n");
 
   // 3. Upsert support log — prevents duplicate rows for same employee & date
-  await supabase.from("daily_support_logs").upsert(
+  const { error: supportUpsertError } = await supabase.from("daily_support_logs").upsert(
     {
       employee_id: profile.id,
       log_date: workDate,
@@ -391,6 +389,21 @@ export async function submitPublicDailyReportAction(
     },
     { onConflict: "employee_id,log_date" }
   );
+
+  if (supportUpsertError) {
+    console.warn("[submitPublicDailyReportAction] Full upsert failed, retrying with core fields:", supportUpsertError.message);
+    await supabase.from("daily_support_logs").upsert(
+      {
+        employee_id: profile.id,
+        log_date: workDate,
+        attendance_status: attendanceStatus,
+        tickets_handled: ticketsHandled,
+        chats_handled: chatsHandled,
+        notes: combinedNotes,
+      },
+      { onConflict: "employee_id,log_date" }
+    );
+  }
 
   if (testingEntriesRaw.length > 0) {
     await supabase

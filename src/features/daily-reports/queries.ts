@@ -124,13 +124,17 @@ export async function getEmployeeSubmissions(
   ]);
 
   const supportMap = new Map<string, DailySupportLog>();
-  (supportRes.data || []).forEach((log) => supportMap.set(log.log_date, log as DailySupportLog));
+  (supportRes.data || []).forEach((log) => {
+    const key = String(log.log_date).split("T")[0];
+    supportMap.set(key, log as DailySupportLog);
+  });
 
   const testingMap = new Map<string, DailyTestingLog[]>();
   (testingRes.data || []).forEach((log) => {
-    const list = testingMap.get(log.log_date) || [];
+    const key = String(log.log_date).split("T")[0];
+    const list = testingMap.get(key) || [];
     list.push(log as DailyTestingLog);
-    testingMap.set(log.log_date, list);
+    testingMap.set(key, list);
   });
 
   const attachMap = new Map<string, DailyReportAttachment[]>();
@@ -140,12 +144,48 @@ export async function getEmployeeSubmissions(
     attachMap.set(att.submission_id, list);
   });
 
-  const fullSubmissions: DailyReportSubmission[] = (subData || []).map((sub) => ({
-    ...sub,
-    supportLog: supportMap.get(sub.work_date) ?? null,
-    testingLogs: testingMap.get(sub.work_date) ?? [],
-    attachments: attachMap.get(sub.id) ?? [],
-  }));
+  const subMap = new Map<string, any>();
+  (subData || []).forEach((sub) => {
+    const key = String(sub.work_date).split("T")[0];
+    subMap.set(key, sub);
+  });
+
+  const allDates = Array.from(
+    new Set([
+      ...Array.from(subMap.keys()),
+      ...Array.from(supportMap.keys()),
+      ...Array.from(testingMap.keys()),
+    ])
+  ).sort((a, b) => b.localeCompare(a));
+
+  const fullSubmissions: DailyReportSubmission[] = allDates.map((workDate) => {
+    const sub = subMap.get(workDate);
+    const sLog = supportMap.get(workDate) ?? null;
+    const tLogs = testingMap.get(workDate) ?? [];
+    const status = sub?.status ?? (sLog || tLogs.length > 0 ? "submitted" : "missing");
+
+    return {
+      id: sub?.id ?? sLog?.id ?? `sub_${profile.id}_${workDate}`,
+      employee_id: profile.id,
+      work_date: workDate,
+      shift: sub?.shift ?? "day",
+      status,
+      is_late: sub?.is_late ?? false,
+      submitted_at: sub?.submitted_at ?? sLog?.created_at ?? new Date().toISOString(),
+      draft_payload: sub?.draft_payload ?? null,
+      notes: sub?.notes ?? (sLog as any)?.notes ?? null,
+      created_by: profile.id,
+      updated_by: profile.id,
+      created_at: sub?.created_at ?? sLog?.created_at ?? new Date().toISOString(),
+      updated_at: sub?.updated_at ?? sLog?.updated_at ?? new Date().toISOString(),
+      employee_name: profile.full_name,
+      employee_email: profile.email,
+      role: profile.role,
+      supportLog: sLog,
+      testingLogs: tLogs,
+      attachments: sub ? (attachMap.get(sub.id) ?? []) : [],
+    };
+  });
 
   return { submissions: fullSubmissions };
 }
@@ -236,9 +276,9 @@ export async function getManagerSubmissions(
 
   // Group logs by (employee_id, date)
   const groupedKeys = new Set<string>();
-  subData.forEach((s) => groupedKeys.add(`${s.employee_id}_${s.work_date}`));
-  supportLogs.forEach((l) => groupedKeys.add(`${l.employee_id}_${l.log_date}`));
-  testingLogs.forEach((t) => groupedKeys.add(`${t.employee_id}_${t.log_date}`));
+  subData.forEach((s) => groupedKeys.add(`${s.employee_id}_${String(s.work_date).split("T")[0]}`));
+  supportLogs.forEach((l) => groupedKeys.add(`${l.employee_id}_${String(l.log_date).split("T")[0]}`));
+  testingLogs.forEach((t) => groupedKeys.add(`${t.employee_id}_${String(t.log_date).split("T")[0]}`));
 
   const submissions: DailyReportSubmission[] = [];
 
@@ -251,9 +291,10 @@ export async function getManagerSubmissions(
       role: "support_engineer",
     };
 
-    const subRecord = subData.find((s) => s.employee_id === empId && s.work_date === workDate) ?? null;
-    const empSupportLog = supportLogs.find((l) => l.employee_id === empId && l.log_date === workDate) ?? null;
-    const empTestingLogs = testingLogs.filter((t) => t.employee_id === empId && t.log_date === workDate);
+    const subRecord = subData.find((s) => s.employee_id === empId && String(s.work_date).split("T")[0] === workDate) ?? null;
+    const matchingSupportLogs = supportLogs.filter((l) => l.employee_id === empId && String(l.log_date).split("T")[0] === workDate);
+    const empSupportLog = matchingSupportLogs.find((l) => (l.tickets_handled ?? 0) > 0 || (l.chats_handled ?? 0) > 0) ?? matchingSupportLogs[0] ?? null;
+    const empTestingLogs = testingLogs.filter((t) => t.employee_id === empId && String(t.log_date).split("T")[0] === workDate);
 
     const status = subRecord?.status ?? (empSupportLog || empTestingLogs.length > 0 ? "submitted" : "missing");
 

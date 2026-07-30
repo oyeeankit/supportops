@@ -279,17 +279,17 @@ export function PublicReportForm() {
                       setSelectedEmail(e.target.value);
                     }
                   }}
-                  className={`rounded-xl border-border bg-background text-foreground text-xs font-semibold h-10 ${
+                  className={`rounded-xl border-border bg-background text-foreground text-xs font-medium h-9 px-2.5 truncate ${
                     !selectedEmail ? "border-amber-400 dark:border-amber-600 ring-2 ring-amber-400/20" : ""
                   }`}
                 >
-                  <option value="" disabled>-- Select Your Work Email (Required) --</option>
+                  <option value="" disabled className="text-xs font-normal">-- Select Work Email --</option>
                   {PRESET_TEAM_EMAILS.map((t) => (
-                    <option key={t.email} value={t.email}>
+                    <option key={t.email} value={t.email} className="text-xs font-normal">
                       {t.name}
                     </option>
                   ))}
-                  <option value="custom">+ Custom Work Email</option>
+                  <option value="custom" className="text-xs font-medium text-blue-600">+ Custom Work Email</option>
                 </Select>
               ) : (
                 <div className="flex items-center gap-2">
@@ -300,20 +300,25 @@ export function PublicReportForm() {
                     placeholder="name@thaliatechnologies.com"
                     value={customEmail}
                     onChange={(e) => setCustomEmail(e.target.value)}
-                    className="rounded-xl border-border bg-background text-foreground text-xs font-medium h-10"
+                    className="rounded-xl border-border bg-background text-foreground text-xs font-medium h-9"
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setIsCustomEmail(false)}
-                    className="rounded-xl text-xs font-bold cursor-pointer shrink-0"
+                    className="rounded-xl text-[11px] font-bold cursor-pointer shrink-0 h-9"
                   >
                     Presets
                   </Button>
                 </div>
               )}
               <input type="hidden" name="email" value={finalEmail} />
+              {finalEmail && (
+                <p className="text-[10px] text-muted-foreground font-medium truncate mt-1">
+                  Selected: <span className="font-bold text-primary">{finalEmail}</span>
+                </p>
+              )}
             </div>
 
             {/* Field 2: Work Date */}
