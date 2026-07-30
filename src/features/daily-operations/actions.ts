@@ -389,6 +389,14 @@ export async function fetchEmployeeDailyDataAction(
     const tHandled = Number(draft.tickets_handled ?? draft.tickets ?? 0);
     const cHandled = Number(draft.chats_handled ?? draft.chats ?? 0);
 
+    const contribList: string[] = Array.isArray(draft.contributions) ? draft.contributions : [];
+    const isDocUpdated = Boolean(draft.doc_updated || contribList.some((c: string) => typeof c === "string" && (c.includes("Doc") || c.includes("KB"))));
+    const isFeatureSuggestion = Boolean(draft.feature_suggestion || contribList.some((c: string) => typeof c === "string" && c.includes("Feature")));
+    const isBugVerification = Boolean(draft.bug_verification || contribList.some((c: string) => typeof c === "string" && c.includes("Bug")));
+    const isAskedForReview = Boolean(draft.asked_for_review || contribList.some((c: string) => typeof c === "string" && c.includes("Asked")));
+    const isGotReview = Boolean(draft.got_review || contribList.some((c: string) => typeof c === "string" && (c.includes("Review") || c.includes("Received"))));
+    const isOtherContribution = Boolean(draft.other_contribution || contribList.some((c: string) => typeof c === "string" && c.includes("Other")));
+
     if (!supportLog) {
       supportLog = {
         id: `sub-${employeeId}-${logDate}`,
@@ -397,12 +405,12 @@ export async function fetchEmployeeDailyDataAction(
         attendance_status: (draft.attendance_status as any) ?? "present",
         tickets_handled: isNaN(tHandled) ? 0 : tHandled,
         chats_handled: isNaN(cHandled) ? 0 : cHandled,
-        doc_updated: Boolean(draft.doc_updated),
-        feature_suggestion: Boolean(draft.feature_suggestion),
-        bug_verification: Boolean(draft.bug_verification),
-        asked_for_review: Boolean(draft.asked_for_review),
-        got_review: Boolean(draft.got_review),
-        other_contribution: Boolean(draft.other_contribution),
+        doc_updated: isDocUpdated,
+        feature_suggestion: isFeatureSuggestion,
+        bug_verification: isBugVerification,
+        asked_for_review: isAskedForReview,
+        got_review: isGotReview,
+        other_contribution: isOtherContribution,
         support_quality: draft.support_quality ?? "good",
         testing_quality: draft.testing_quality ?? "good",
         testing_notes: subData.notes ?? null,
@@ -416,12 +424,12 @@ export async function fetchEmployeeDailyDataAction(
         supportLog.tickets_handled = tHandled;
         supportLog.chats_handled = cHandled;
       }
-      if (draft.doc_updated) supportLog.doc_updated = true;
-      if (draft.feature_suggestion) supportLog.feature_suggestion = true;
-      if (draft.bug_verification) supportLog.bug_verification = true;
-      if (draft.asked_for_review) supportLog.asked_for_review = true;
-      if (draft.got_review) supportLog.got_review = true;
-      if (draft.other_contribution) supportLog.other_contribution = true;
+      if (isDocUpdated) supportLog.doc_updated = true;
+      if (isFeatureSuggestion) supportLog.feature_suggestion = true;
+      if (isBugVerification) supportLog.bug_verification = true;
+      if (isAskedForReview) supportLog.asked_for_review = true;
+      if (isGotReview) supportLog.got_review = true;
+      if (isOtherContribution) supportLog.other_contribution = true;
       if (subData.notes && !supportLog.testing_notes) supportLog.testing_notes = subData.notes;
     }
   }

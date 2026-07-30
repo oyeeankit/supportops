@@ -317,8 +317,20 @@ export async function getManagerSubmissions(
     .select("id, full_name, email, avatar_url, role, roles(name)")
     .in("id", empIds);
 
+  const hasPrathamesh = (profiles || []).some(
+    (p) => p.email?.toLowerCase().trim() === "prathamesh@thaliatechnologies.com" || p.full_name?.toLowerCase().trim() === "prathamesh"
+  );
+  const filteredProfiles = (profiles || []).filter((p) => {
+    const e = p.email?.toLowerCase().trim();
+    const name = p.full_name?.toLowerCase().trim();
+    if (hasPrathamesh && (e === "prathmesh@thaliatechnologies.com" || name === "prathmesh")) {
+      return false;
+    }
+    return true;
+  });
+
   const profileMap = new Map();
-  (profiles || []).forEach((p) => {
+  filteredProfiles.forEach((p) => {
     const roleName = Array.isArray(p.roles) ? p.roles[0]?.name : (p.roles as any)?.name ?? p.role ?? "support_engineer";
     profileMap.set(p.id, { ...p, role: roleName });
   });

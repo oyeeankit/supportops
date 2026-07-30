@@ -73,16 +73,24 @@ export async function submitDailyReportAction(
   }
 
   // Enforce 1 report per day limit — prevent duplicate submissions
-  const { data: existingReport } = await supabase
-    .from("daily_support_logs")
-    .select("id")
-    .eq("employee_id", profile.id)
-    .eq("log_date", workDate)
-    .maybeSingle();
+  const [existingLogRes, existingSubRes] = await Promise.all([
+    supabase
+      .from("daily_support_logs")
+      .select("id")
+      .eq("employee_id", profile.id)
+      .eq("log_date", workDate)
+      .maybeSingle(),
+    supabase
+      .from("daily_report_submissions")
+      .select("id")
+      .eq("employee_id", profile.id)
+      .eq("work_date", workDate)
+      .maybeSingle(),
+  ]);
 
-  if (existingReport) {
+  if (existingLogRes.data || existingSubRes.data) {
     return {
-      message: `You have already submitted a daily report for ${workDate}. Duplicate submissions for the same date are not allowed.`,
+      message: `A daily report for ${workDate} has already been submitted for ${profile.full_name}. Duplicate submissions for the same date are not allowed.`,
     };
   }
 
@@ -343,15 +351,23 @@ export async function submitPublicDailyReportAction(
     return { message: "Could not record profile for this email. Please check your email address or ensure database migration has been run." };
   }
 
-  // Check if an existing report already exists for this (employee_id, workDate)
-  const { data: existingLog } = await supabase
-    .from("daily_support_logs")
-    .select("id")
-    .eq("employee_id", profile.id)
-    .eq("log_date", workDate)
-    .maybeSingle();
+  // Check if an existing report already exists for this (employee_id, workDate) in either table
+  const [existingLogRes, existingSubRes] = await Promise.all([
+    supabase
+      .from("daily_support_logs")
+      .select("id")
+      .eq("employee_id", profile.id)
+      .eq("log_date", workDate)
+      .maybeSingle(),
+    supabase
+      .from("daily_report_submissions")
+      .select("id")
+      .eq("employee_id", profile.id)
+      .eq("work_date", workDate)
+      .maybeSingle(),
+  ]);
 
-  if (existingLog) {
+  if (existingLogRes.data || existingSubRes.data) {
     return {
       message: `A daily report for ${workDate} has already been submitted for ${profile.full_name} (${email}). Only 1 report per day is allowed.`,
     };
@@ -473,6 +489,13 @@ export async function submitPublicDailyReportAction(
           tickets_handled: ticketsHandled,
           chats_handled: chatsHandled,
           attendance_status: attendanceStatus,
+          doc_updated: docUpdated,
+          feature_suggestion: featureSuggestion,
+          bug_verification: bugVerification,
+          asked_for_review: askedForReview,
+          got_review: gotReview,
+          other_contribution: otherContribution,
+          custom_contribution: customContribution,
           contributions: contributionList,
           testing_entries: testingEntriesRaw,
         },

@@ -30,6 +30,21 @@ type ProfileRow = {
     | null;
 };
 
+export function filterDuplicateProfiles<T extends { email?: string | null; full_name?: string | null }>(profilesData: T[] | null): T[] {
+  if (!profilesData) return [];
+  const hasPrathamesh = profilesData.some(
+    (p) => p.email?.toLowerCase().trim() === "prathamesh@thaliatechnologies.com" || p.full_name?.toLowerCase().trim() === "prathamesh"
+  );
+  return profilesData.filter((p) => {
+    const e = p.email?.toLowerCase().trim();
+    const name = p.full_name?.toLowerCase().trim();
+    if (hasPrathamesh && (e === "prathmesh@thaliatechnologies.com" || name === "prathmesh")) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export function todayIso() {
   const d = new Date();
   const year = d.getFullYear();
@@ -304,7 +319,7 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
     .eq("employment_status", "active")
     .order("full_name");
 
-  const { data: profiles, error: profilesError } = isManager
+  const { data: rawProfiles, error: profilesError } = isManager
     ? await profileQuery.neq("id", profile.id)
     : await profileQuery.eq("id", profile.id);
 
@@ -312,7 +327,8 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
     return emptyMonthlyReport(reportMonth.month, reportMonth.monthLabel, reportMonth.expectedWorkingDays, profilesError.message);
   }
 
-  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((e) => e.id);
+  const profiles = filterDuplicateProfiles(rawProfiles as unknown as ProfileRow[]);
+  const employeeIds = profiles.map((e) => e.id);
   let supportLogs: DailySupportLog[] = [];
   let testingLogs: DailyTestingLog[] = [];
   let adjustments: Array<{
@@ -389,6 +405,37 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
             updated_at: new Date().toISOString(),
           });
         }
+
+        // Backfill submitted testing entries into testingLogs for Monthly Report
+        if (Array.isArray(draft.testing_entries) && draft.testing_entries.length > 0) {
+          for (let idx = 0; idx < draft.testing_entries.length; idx++) {
+            const t = draft.testing_entries[idx];
+            const hasExactTesting = testingLogs.some(
+              (tl) =>
+                tl.employee_id === s.employee_id &&
+                String(tl.log_date).split("T")[0] === wDate &&
+                tl.application_name === t.application_name
+            );
+            if (!hasExactTesting) {
+              testingLogs.push({
+                id: `sub-m-t-${s.employee_id}-${wDate}-${idx}`,
+                employee_id: s.employee_id,
+                log_date: wDate,
+                platform: t.platform || "shopify",
+                application_name: t.application_name || "App Testing",
+                module_name: t.module_name || "",
+                testing_type: t.testing_type || "functional",
+                status: t.status || "completed",
+                bugs_found: Number(t.bugs_found || 0),
+                critical_bug: Boolean(t.critical_bug),
+                created_by: null,
+                updated_by: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              });
+            }
+          }
+        }
       }
     }
   }
@@ -458,8 +505,9 @@ export async function getMonthlyPerformanceReport(profile: UserProfile, month = 
         if (sl.other_contribution) otherContributions++;
       }
       
-      if (hasTesting && sl !== null) {
-        sumTestingQuality += testingQualityToScore[sl.testing_quality] ?? 3;
+      if (hasTesting) {
+        const tQuality = sl?.testing_quality ?? "good";
+        sumTestingQuality += testingQualityToScore[tQuality] ?? 3;
         countTestingQuality++;
       }
     }
@@ -586,7 +634,7 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
     .eq("employment_status", "active")
     .order("full_name");
 
-  const { data: profiles, error: profilesError } = isManager
+  const { data: rawProfiles, error: profilesError } = isManager
     ? await profileQuery.neq("id", profile.id)
     : await profileQuery.eq("id", profile.id);
 
@@ -594,7 +642,8 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
     return { date, rows: [], error: profilesError.message };
   }
 
-  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((e) => e.id);
+  const profiles = filterDuplicateProfiles(rawProfiles as unknown as ProfileRow[]);
+  const employeeIds = profiles.map((e) => e.id);
   let supportLogs: DailySupportLog[] = [];
   let testingLogs: DailyTestingLog[] = [];
   const submissionsMap = new Set<string>();
@@ -644,6 +693,7 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
       const draft = (subRec?.draft_payload as any) ?? {};
       const tHandled = Number(draft.tickets_handled ?? draft.tickets ?? 0);
       const cHandled = Number(draft.chats_handled ?? draft.chats ?? 0);
+      const contribList: string[] = Array.isArray(draft.contributions) ? draft.contributions : [];
 
       sLog = {
         id: `sub-${emp.id}`,
@@ -652,12 +702,12 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
         attendance_status: (draft.attendance_status as any) ?? "present",
         tickets_handled: isNaN(tHandled) ? 0 : tHandled,
         chats_handled: isNaN(cHandled) ? 0 : cHandled,
-        doc_updated: Boolean(draft.doc_updated),
-        feature_suggestion: Boolean(draft.feature_suggestion),
-        bug_verification: Boolean(draft.bug_verification),
-        asked_for_review: Boolean(draft.asked_for_review),
-        got_review: Boolean(draft.got_review),
-        other_contribution: Boolean(draft.other_contribution),
+        doc_updated: Boolean(draft.doc_updated || contribList.some((c: string) => typeof c === "string" && (c.includes("Doc") || c.includes("KB")))),
+        feature_suggestion: Boolean(draft.feature_suggestion || contribList.some((c: string) => typeof c === "string" && c.includes("Feature"))),
+        bug_verification: Boolean(draft.bug_verification || contribList.some((c: string) => typeof c === "string" && c.includes("Bug"))),
+        asked_for_review: Boolean(draft.asked_for_review || contribList.some((c: string) => typeof c === "string" && c.includes("Asked"))),
+        got_review: Boolean(draft.got_review || contribList.some((c: string) => typeof c === "string" && (c.includes("Review") || c.includes("Received")))),
+        other_contribution: Boolean(draft.other_contribution || contribList.some((c: string) => typeof c === "string" && c.includes("Other"))),
         support_quality: "good",
         testing_quality: "good",
         testing_notes: subRec?.notes ?? null,
@@ -666,6 +716,16 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
+    } else if (sLog && submissionsMap.has(emp.id)) {
+      const subRec = subDataMap.get(emp.id);
+      const draft = (subRec?.draft_payload as any) ?? {};
+      const contribList: string[] = Array.isArray(draft.contributions) ? draft.contributions : [];
+      if (draft.doc_updated || contribList.some((c: string) => typeof c === "string" && (c.includes("Doc") || c.includes("KB")))) sLog.doc_updated = true;
+      if (draft.feature_suggestion || contribList.some((c: string) => typeof c === "string" && c.includes("Feature"))) sLog.feature_suggestion = true;
+      if (draft.bug_verification || contribList.some((c: string) => typeof c === "string" && c.includes("Bug"))) sLog.bug_verification = true;
+      if (draft.asked_for_review || contribList.some((c: string) => typeof c === "string" && c.includes("Asked"))) sLog.asked_for_review = true;
+      if (draft.got_review || contribList.some((c: string) => typeof c === "string" && (c.includes("Review") || c.includes("Received")))) sLog.got_review = true;
+      if (draft.other_contribution || contribList.some((c: string) => typeof c === "string" && c.includes("Other"))) sLog.other_contribution = true;
     }
 
     let empTestingLogs = testingByEmp.get(emp.id) ?? [];
@@ -723,7 +783,7 @@ export async function getDailyOperationsDashboardData(profile: UserProfile, rang
     .eq("employment_status", "active")
     .order("full_name");
 
-  const { data: profiles, error: profilesError } = isManager
+  const { data: rawProfiles, error: profilesError } = isManager
     ? await profileQuery.neq("id", profile.id)
     : await profileQuery.eq("id", profile.id);
 
@@ -731,7 +791,8 @@ export async function getDailyOperationsDashboardData(profile: UserProfile, rang
     return { range, startDate, endDate, rows: [], error: profilesError.message };
   }
 
-  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((e) => e.id);
+  const profiles = filterDuplicateProfiles(rawProfiles as unknown as ProfileRow[]);
+  const employeeIds = profiles.map((e) => e.id);
   let supportLogs: DailySupportLog[] = [];
   let testingLogs: DailyTestingLog[] = [];
 
@@ -806,7 +867,7 @@ export async function getDailyOperationsMonthData(
     .eq("employment_status", "active")
     .order("full_name");
 
-  const { data: profiles, error: profilesError } = isManager
+  const { data: rawProfiles, error: profilesError } = isManager
     ? await profileQuery.neq("id", profile.id)
     : await profileQuery.eq("id", profile.id);
 
@@ -814,7 +875,8 @@ export async function getDailyOperationsMonthData(
     return { month, rows: [] as TeamMemberMonthlyLogsRow[], error: profilesError.message };
   }
 
-  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((e) => e.id);
+  const profiles = filterDuplicateProfiles(rawProfiles as unknown as ProfileRow[]);
+  const employeeIds = profiles.map((e) => e.id);
   let supportLogs: DailySupportLog[] = [];
   let testingLogs: DailyTestingLog[] = [];
 
@@ -941,10 +1003,10 @@ export async function getDashboardTrendData(profile: UserProfile, days: number =
 
   const profileQuery = supabase
     .from("profiles")
-    .select("id")
+    .select("id, full_name, email")
     .eq("employment_status", "active");
 
-  const { data: profiles, error: profilesError } = isManager
+  const { data: rawProfiles, error: profilesError } = isManager
     ? await profileQuery.neq("id", profile.id)
     : await profileQuery.eq("id", profile.id);
 
@@ -952,7 +1014,8 @@ export async function getDashboardTrendData(profile: UserProfile, days: number =
     return { data: [], error: profilesError.message };
   }
 
-  const employeeIds = ((profiles ?? []) as unknown as ProfileRow[]).map((p) => p.id);
+  const profiles = filterDuplicateProfiles(rawProfiles as unknown as ProfileRow[]);
+  const employeeIds = profiles.map((p) => p.id);
   
   if (employeeIds.length === 0) {
     return { data: [], error: null };
