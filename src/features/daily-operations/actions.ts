@@ -353,6 +353,79 @@ export async function fetchEmployeeDailyDataAction(
     }
   }
 
+  // Backfill exact submitted testing entries & support data from daily_report_submissions if direct logs are missing or baseline
+  const { data: subData } = await supabase
+    .from("daily_report_submissions")
+    .select("draft_payload, notes")
+    .eq("employee_id", employeeId)
+    .eq("work_date", logDate)
+    .maybeSingle();
+
+  if (subData) {
+    const draft = (subData.draft_payload as any) ?? {};
+    const isTestingBaseline =
+      testingLogs.length === 0 ||
+      testingLogs.every((t) => !t.application_name || t.application_name === "App Testing");
+
+    if (isTestingBaseline && Array.isArray(draft.testing_entries) && draft.testing_entries.length > 0) {
+      testingLogs = draft.testing_entries.map((t: any, idx: number) => ({
+        id: `draft-t-${employeeId}-${logDate}-${idx}`,
+        employee_id: employeeId,
+        log_date: logDate,
+        platform: t.platform || "shopify",
+        application_name: t.application_name || "",
+        module_name: t.module_name || "",
+        testing_type: t.testing_type || "functional",
+        status: t.status || "completed",
+        bugs_found: Number(t.bugs_found || 0),
+        critical_bug: Boolean(t.critical_bug),
+        created_by: null,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })) as DailyTestingLog[];
+    }
+
+    const tHandled = Number(draft.tickets_handled ?? draft.tickets ?? 0);
+    const cHandled = Number(draft.chats_handled ?? draft.chats ?? 0);
+
+    if (!supportLog) {
+      supportLog = {
+        id: `sub-${employeeId}-${logDate}`,
+        employee_id: employeeId,
+        log_date: logDate,
+        attendance_status: (draft.attendance_status as any) ?? "present",
+        tickets_handled: isNaN(tHandled) ? 0 : tHandled,
+        chats_handled: isNaN(cHandled) ? 0 : cHandled,
+        doc_updated: Boolean(draft.doc_updated),
+        feature_suggestion: Boolean(draft.feature_suggestion),
+        bug_verification: Boolean(draft.bug_verification),
+        asked_for_review: Boolean(draft.asked_for_review),
+        got_review: Boolean(draft.got_review),
+        other_contribution: Boolean(draft.other_contribution),
+        support_quality: draft.support_quality ?? "good",
+        testing_quality: draft.testing_quality ?? "good",
+        testing_notes: subData.notes ?? null,
+        created_by: null,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as DailySupportLog;
+    } else {
+      if ((supportLog.tickets_handled ?? 0) === 0 && (supportLog.chats_handled ?? 0) === 0 && (tHandled > 0 || cHandled > 0)) {
+        supportLog.tickets_handled = tHandled;
+        supportLog.chats_handled = cHandled;
+      }
+      if (draft.doc_updated) supportLog.doc_updated = true;
+      if (draft.feature_suggestion) supportLog.feature_suggestion = true;
+      if (draft.bug_verification) supportLog.bug_verification = true;
+      if (draft.asked_for_review) supportLog.asked_for_review = true;
+      if (draft.got_review) supportLog.got_review = true;
+      if (draft.other_contribution) supportLog.other_contribution = true;
+      if (subData.notes && !supportLog.testing_notes) supportLog.testing_notes = subData.notes;
+    }
+  }
+
   return {
     supportLog,
     testingLogs,

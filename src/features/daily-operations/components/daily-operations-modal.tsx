@@ -48,8 +48,8 @@ const initialState: DailyOperationActionState = {};
 
 // Build grouped options for the SearchableSelect from the app catalogue.
 // "Support Only" (No Testing Assigned) always appears first.
-export const appSelectGroups: SearchableGroup[] = testingPlatforms.map((platform) => ({
-  label: platformLabels[platform] || platform,
+export const appSelectGroups: SearchableGroup[] = Object.keys(appsByPlatform).map((platform) => ({
+  label: platformLabels[platform] || platform.replaceAll("_", " ").toUpperCase(),
   options: (appsByPlatform[platform] || []).map((app) => ({ value: app, label: app })),
 }));
 
@@ -693,11 +693,10 @@ function TestingEntryCard({
         {/* Row 1: App and Module */}
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Testing App">
-            <SearchableSelect
-              groups={appSelectGroups}
+            <Select
               value={entry.application_name}
-              placeholder="Select app..."
-              onChange={(value) => {
+              onChange={(e) => {
+                const value = e.target.value;
                 const platform = platformForApp[value] ?? "shopify";
                 if (isNoTestingAssigned(value)) {
                   // Reset all other fields to defaults/0 when No Testing Assigned
@@ -713,7 +712,19 @@ function TestingEntryCard({
                   onChange("platform", platform);
                 }
               }}
-            />
+              className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200 bg-background text-foreground shadow-sm h-10 text-xs font-semibold"
+            >
+              <option value="">Select Testing App...</option>
+              {appSelectGroups.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </Select>
           </Field>
           <Field label="Module">
             <Select

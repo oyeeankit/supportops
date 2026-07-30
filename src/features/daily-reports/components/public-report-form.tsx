@@ -591,6 +591,10 @@ export function PublicReportForm() {
                         className="h-10 text-xs font-semibold rounded-xl border-border mt-1 bg-background text-foreground shadow-sm"
                       >
                         <option value="">Select Testing App...</option>
+                        {row.application_name &&
+                          !appSelectGroups.some((g) => g.options.some((o) => o.value === row.application_name)) && (
+                            <option value={row.application_name}>{row.application_name}</option>
+                          )}
                         {appSelectGroups.map((group) => (
                           <optgroup key={group.label} label={group.label}>
                             {group.options.map((opt) => (

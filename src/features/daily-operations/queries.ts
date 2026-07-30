@@ -669,7 +669,8 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
     }
 
     let empTestingLogs = testingByEmp.get(emp.id) ?? [];
-    if (empTestingLogs.length === 0 && submissionsMap.has(emp.id)) {
+    const isBaselineTesting = empTestingLogs.length === 0 || empTestingLogs.every((t) => !t.application_name || t.application_name === "App Testing");
+    if (isBaselineTesting && submissionsMap.has(emp.id)) {
       const subRec = subDataMap.get(emp.id);
       const draft = (subRec?.draft_payload as any) ?? {};
       if (Array.isArray(draft.testing_entries) && draft.testing_entries.length > 0) {
@@ -678,7 +679,7 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
           employee_id: emp.id,
           log_date: date,
           platform: t.platform || "shopify",
-          application_name: t.application_name || "App Testing",
+          application_name: t.application_name || "",
           module_name: t.module_name || "",
           testing_type: t.testing_type || "functional",
           status: t.status || "completed",
