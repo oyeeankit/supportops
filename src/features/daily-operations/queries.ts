@@ -131,7 +131,7 @@ async function fetchDailySupportLogsWithFallback(
   if (endDate) {
     query = query.gte("log_date", startDate).lte("log_date", endDate).order("log_date", { ascending: false });
   } else {
-    query = query.eq("log_date", startDate);
+    query = query.gte("log_date", startDate).lte("log_date", `${startDate}T23:59:59.999Z`);
   }
 
   const { data, error } = await query;
@@ -148,7 +148,7 @@ async function fetchDailySupportLogsWithFallback(
   if (endDate) {
     legacyQuery = legacyQuery.gte("log_date", startDate).lte("log_date", endDate).order("log_date", { ascending: false });
   } else {
-    legacyQuery = legacyQuery.eq("log_date", startDate);
+    legacyQuery = legacyQuery.gte("log_date", startDate).lte("log_date", `${startDate}T23:59:59.999Z`);
   }
 
   const { data: legacyData, error: legacyError } = await legacyQuery;
@@ -194,7 +194,7 @@ async function fetchDailyTestingLogsWithFallback(
   if (endDate) {
     query = query.gte("log_date", startDate).lte("log_date", endDate).order("log_date", { ascending: false });
   } else {
-    query = query.eq("log_date", startDate);
+    query = query.gte("log_date", startDate).lte("log_date", `${startDate}T23:59:59.999Z`);
   }
 
   const { data, error } = await query;
@@ -211,7 +211,7 @@ async function fetchDailyTestingLogsWithFallback(
   if (endDate) {
     legacyQuery = legacyQuery.gte("log_date", startDate).lte("log_date", endDate).order("log_date", { ascending: false });
   } else {
-    legacyQuery = legacyQuery.eq("log_date", startDate);
+    legacyQuery = legacyQuery.gte("log_date", startDate).lte("log_date", `${startDate}T23:59:59.999Z`);
   }
 
   const { data: legacyData, error: legacyError } = await legacyQuery;
@@ -558,12 +558,13 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
   let supportLogs: DailySupportLog[] = [];
   let testingLogs: DailyTestingLog[] = [];
   const submissionsMap = new Set<string>();
+  const subDataMap = new Map<string, any>();
 
   if (employeeIds.length > 0) {
     const [sr, tr, subRes] = await Promise.all([
       fetchDailySupportLogsWithFallback(supabase, date, undefined, employeeIds),
       fetchDailyTestingLogsWithFallback(supabase, date, undefined, employeeIds),
-      supabase.from("daily_report_submissions").select("employee_id").eq("work_date", date).in("employee_id", employeeIds),
+      supabase.from("daily_report_submissions").select("employee_id, draft_payload, notes").eq("work_date", date).in("employee_id", employeeIds),
     ]);
 
     if (sr.error) return { date, rows: [], error: sr.error.message };
@@ -573,11 +574,21 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
     testingLogs = tr.data;
 
     if (subRes.data) {
-      subRes.data.forEach((s) => submissionsMap.add(s.employee_id));
+      subRes.data.forEach((s) => {
+        submissionsMap.add(s.employee_id);
+        subDataMap.set(s.employee_id, s);
+      });
     }
   }
 
-  const supportByEmp = new Map(supportLogs.map((l) => [l.employee_id, l]));
+  const supportByEmp = new Map<string, DailySupportLog>();
+  for (const log of supportLogs) {
+    const existing = supportByEmp.get(log.employee_id);
+    if (!existing || (log.tickets_handled ?? 0) > 0 || (log.chats_handled ?? 0) > 0) {
+      supportByEmp.set(log.employee_id, log);
+    }
+  }
+
   const testingByEmp = new Map<string, DailyTestingLog[]>();
   for (const log of testingLogs) {
     const existing = testingByEmp.get(log.employee_id) ?? [];
@@ -589,27 +600,56 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
     const role = Array.isArray(emp.roles) ? emp.roles[0]?.name : emp.roles?.name ?? "support_engineer";
     let sLog = supportByEmp.get(emp.id) ?? null;
     if (!sLog && submissionsMap.has(emp.id)) {
+      const subRec = subDataMap.get(emp.id);
+      const draft = (subRec?.draft_payload as any) ?? {};
+      const tHandled = Number(draft.tickets_handled ?? draft.tickets ?? 0);
+      const cHandled = Number(draft.chats_handled ?? draft.chats ?? 0);
+
       sLog = {
         id: `sub-${emp.id}`,
         employee_id: emp.id,
         log_date: date,
-        attendance_status: "present",
-        tickets_handled: 0,
-        chats_handled: 0,
-        doc_updated: false,
-        feature_suggestion: false,
-        bug_verification: false,
-        asked_for_review: false,
-        got_review: false,
-        other_contribution: false,
+        attendance_status: (draft.attendance_status as any) ?? "present",
+        tickets_handled: isNaN(tHandled) ? 0 : tHandled,
+        chats_handled: isNaN(cHandled) ? 0 : cHandled,
+        doc_updated: Boolean(draft.doc_updated),
+        feature_suggestion: Boolean(draft.feature_suggestion),
+        bug_verification: Boolean(draft.bug_verification),
+        asked_for_review: Boolean(draft.asked_for_review),
+        got_review: Boolean(draft.got_review),
+        other_contribution: Boolean(draft.other_contribution),
         support_quality: "good",
         testing_quality: "good",
-        testing_notes: null,
+        testing_notes: subRec?.notes ?? null,
         created_by: null,
         updated_by: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
+    }
+
+    let empTestingLogs = testingByEmp.get(emp.id) ?? [];
+    if (empTestingLogs.length === 0 && submissionsMap.has(emp.id)) {
+      const subRec = subDataMap.get(emp.id);
+      const draft = (subRec?.draft_payload as any) ?? {};
+      if (Array.isArray(draft.testing_entries) && draft.testing_entries.length > 0) {
+        empTestingLogs = draft.testing_entries.map((t: any, idx: number) => ({
+          id: `draft-t-${emp.id}-${idx}`,
+          employee_id: emp.id,
+          log_date: date,
+          platform: t.platform || "shopify",
+          application_name: t.application_name || "App Testing",
+          module_name: t.module_name || "",
+          testing_type: t.testing_type || "functional",
+          status: t.status || "completed",
+          bugs_found: Number(t.bugs_found || 0),
+          critical_bug: Boolean(t.critical_bug),
+          created_by: null,
+          updated_by: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }));
+      }
     }
 
     return {
@@ -620,7 +660,7 @@ export async function getDailyOperationsPageData(profile: UserProfile, date = to
       shift: emp.shift,
       avatar_url: emp.avatar_url,
       supportLog: sLog,
-      testingLogs: testingByEmp.get(emp.id) ?? [],
+      testingLogs: empTestingLogs,
     };
   });
 

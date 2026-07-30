@@ -161,7 +161,28 @@ export async function getEmployeeSubmissions(
   const fullSubmissions: DailyReportSubmission[] = allDates.map((workDate) => {
     const sub = subMap.get(workDate);
     const sLog = supportMap.get(workDate) ?? null;
-    const tLogs = testingMap.get(workDate) ?? [];
+    let tLogs = testingMap.get(workDate) ?? [];
+    if (tLogs.length === 0 && sub?.draft_payload?.testing_entries) {
+      const draftList = sub.draft_payload.testing_entries;
+      if (Array.isArray(draftList) && draftList.length > 0) {
+        tLogs = draftList.map((t: any, idx: number) => ({
+          id: `draft-t-${profile.id}-${workDate}-${idx}`,
+          employee_id: profile.id,
+          log_date: workDate,
+          platform: t.platform || "shopify",
+          application_name: t.application_name || "App Testing",
+          module_name: t.module_name || "",
+          testing_type: t.testing_type || "functional",
+          status: t.status || "completed",
+          bugs_found: Number(t.bugs_found || 0),
+          critical_bug: Boolean(t.critical_bug),
+          created_by: null,
+          updated_by: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }));
+      }
+    }
     const status = sub?.status ?? (sLog || tLogs.length > 0 ? "submitted" : "missing");
 
     return {
@@ -294,7 +315,29 @@ export async function getManagerSubmissions(
     const subRecord = subData.find((s) => s.employee_id === empId && String(s.work_date).split("T")[0] === workDate) ?? null;
     const matchingSupportLogs = supportLogs.filter((l) => l.employee_id === empId && String(l.log_date).split("T")[0] === workDate);
     const empSupportLog = matchingSupportLogs.find((l) => (l.tickets_handled ?? 0) > 0 || (l.chats_handled ?? 0) > 0) ?? matchingSupportLogs[0] ?? null;
-    const empTestingLogs = testingLogs.filter((t) => t.employee_id === empId && String(t.log_date).split("T")[0] === workDate);
+    let empTestingLogs = testingLogs.filter((t) => t.employee_id === empId && String(t.log_date).split("T")[0] === workDate);
+
+    if (empTestingLogs.length === 0 && subRecord?.draft_payload?.testing_entries) {
+      const draftList = subRecord.draft_payload.testing_entries;
+      if (Array.isArray(draftList) && draftList.length > 0) {
+        empTestingLogs = draftList.map((t: any, idx: number) => ({
+          id: `draft-t-${empId}-${workDate}-${idx}`,
+          employee_id: empId,
+          log_date: workDate,
+          platform: t.platform || "shopify",
+          application_name: t.application_name || "App Testing",
+          module_name: t.module_name || "",
+          testing_type: t.testing_type || "functional",
+          status: t.status || "completed",
+          bugs_found: Number(t.bugs_found || 0),
+          critical_bug: Boolean(t.critical_bug),
+          created_by: null,
+          updated_by: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }));
+      }
+    }
 
     const status = subRecord?.status ?? (empSupportLog || empTestingLogs.length > 0 ? "submitted" : "missing");
 

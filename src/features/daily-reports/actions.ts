@@ -153,7 +153,20 @@ export async function submitDailyReportAction(
       updated_by: profile.id,
     }));
 
-    await supabase.from("daily_testing_logs").insert(testingRows);
+    const { error: testErr } = await supabase.from("daily_testing_logs").insert(testingRows);
+    if (testErr) {
+      console.warn("[submitDailyReportAction] Full testing insert failed, retrying with core fields:", testErr.message);
+      const baselineRows = validatedEntries.map((e) => ({
+        employee_id: profile.id,
+        log_date: workDate,
+        application_name: (e.application_name as string) || "App Testing",
+        module_name: (e.module_name as string) || "",
+        testing_type: (e.testing_type as string) || "functional",
+        status: (e.status as string) || "completed",
+        bugs_found: Number(e.bugs_found || 0),
+      }));
+      await supabase.from("daily_testing_logs").insert(baselineRows);
+    }
   }
 
   const submissionStatus = isLate ? "late" : "submitted";
@@ -167,6 +180,12 @@ export async function submitDailyReportAction(
         is_late: isLate,
         submitted_at: new Date().toISOString(),
         notes: String(formData.get("notes") ?? ""),
+        draft_payload: {
+          tickets_handled: supportParsed.data.tickets_handled,
+          chats_handled: supportParsed.data.chats_handled,
+          attendance_status: supportParsed.data.attendance_status,
+          testing_entries: validatedEntries,
+        },
         updated_by: profile.id,
         updated_at: new Date().toISOString(),
       },
@@ -358,7 +377,7 @@ export async function submitPublicDailyReportAction(
 
   let testingEntriesRaw: any[] = [];
   try {
-    const raw = String(formData.get("testing_entries_json") ?? "[]");
+    const raw = String(formData.get("testing_entries_json") ?? formData.get("testing_entries") ?? "[]");
     testingEntriesRaw = JSON.parse(raw);
   } catch {
     testingEntriesRaw = [];
@@ -424,7 +443,20 @@ export async function submitPublicDailyReportAction(
       critical_bug: Boolean(e.critical_bug),
     }));
 
-    await supabase.from("daily_testing_logs").insert(testingRows);
+    const { error: testErr } = await supabase.from("daily_testing_logs").insert(testingRows);
+    if (testErr) {
+      console.warn("[submitPublicDailyReportAction] Full testing insert failed, retrying with core fields:", testErr.message);
+      const baselineRows = testingEntriesRaw.map((e: any) => ({
+        employee_id: profile.id,
+        log_date: workDate,
+        application_name: e.application_name || "App Testing",
+        module_name: e.module_name || "",
+        testing_type: e.testing_type || "functional",
+        status: e.status || "completed",
+        bugs_found: Number(e.bugs_found || 0),
+      }));
+      await supabase.from("daily_testing_logs").insert(baselineRows);
+    }
   }
 
   try {
@@ -437,6 +469,13 @@ export async function submitPublicDailyReportAction(
         is_late: false,
         submitted_at: new Date().toISOString(),
         notes: notes,
+        draft_payload: {
+          tickets_handled: ticketsHandled,
+          chats_handled: chatsHandled,
+          attendance_status: attendanceStatus,
+          contributions: contributionList,
+          testing_entries: testingEntriesRaw,
+        },
       },
       { onConflict: "employee_id,work_date" }
     );
