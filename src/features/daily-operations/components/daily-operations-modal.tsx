@@ -114,7 +114,7 @@ export function DailyOperationsModal({
 }: Props) {
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [supportLog, setSupportLog] = useState<DailySupportLog | null>(initialSupportLog);
-  const [testingLogs, setTestingLogs] = useState<DailyTestingLog[]>(initialTestingLogs);
+  const [testingLogs, setTestingLogs] = useState<DailyTestingLog[]>(initialTestingLogs || []);
   const [loading, setLoading] = useState(false);
   const [dateChanged, setDateChanged] = useState(false);
 
