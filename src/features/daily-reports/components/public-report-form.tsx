@@ -123,9 +123,15 @@ export function PublicReportForm() {
     setTestingEntries(testingEntries.filter((r) => r.id !== id));
   };
 
-  const updateTestingRow = (id: string, field: keyof TestingRow, val: any) => {
-    setTestingEntries(
-      testingEntries.map((r) => (r.id === id ? { ...r, [field]: val } : r))
+  const updateTestingRow = (id: string, fieldOrUpdates: keyof TestingRow | Partial<TestingRow>, val?: any) => {
+    setTestingEntries((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        if (typeof fieldOrUpdates === "string") {
+          return { ...r, [fieldOrUpdates]: val };
+        }
+        return { ...r, ...fieldOrUpdates };
+      })
     );
   };
 
@@ -585,8 +591,10 @@ export function PublicReportForm() {
                         onChange={(e) => {
                           const val = e.target.value;
                           const platform = platformForApp[val] ?? "shopify";
-                          updateTestingRow(row.id, "application_name", val);
-                          updateTestingRow(row.id, "platform", platform);
+                          updateTestingRow(row.id, {
+                            application_name: val,
+                            platform: platform,
+                          });
                         }}
                         className="h-10 text-xs font-semibold rounded-xl border-border mt-1 bg-background text-foreground shadow-sm"
                       >

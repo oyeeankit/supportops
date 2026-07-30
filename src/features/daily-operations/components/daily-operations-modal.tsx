@@ -715,6 +715,10 @@ function TestingEntryCard({
               className="rounded-xl border-border/80 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200 bg-background text-foreground shadow-sm h-10 text-xs font-semibold"
             >
               <option value="">Select Testing App...</option>
+              {entry.application_name &&
+                !appSelectGroups.some((g) => g.options.some((o) => o.value === entry.application_name)) && (
+                  <option value={entry.application_name}>{entry.application_name}</option>
+                )}
               {appSelectGroups.map((group) => (
                 <optgroup key={group.label} label={group.label}>
                   {group.options.map((opt) => (

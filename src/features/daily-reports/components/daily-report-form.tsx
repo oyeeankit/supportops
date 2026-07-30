@@ -161,9 +161,15 @@ export function DailyReportForm({
     setTestingEntries(testingEntries.filter((e) => e.id !== id));
   };
 
-  const updateTestingEntry = (id: string, field: keyof TestingRowItem, value: any) => {
-    setTestingEntries(
-      testingEntries.map((e) => (e.id === id ? { ...e, [field]: value } : e))
+  const updateTestingEntry = (id: string, fieldOrUpdates: keyof TestingRowItem | Partial<TestingRowItem>, value?: any) => {
+    setTestingEntries((prev) =>
+      prev.map((e) => {
+        if (e.id !== id) return e;
+        if (typeof fieldOrUpdates === "string") {
+          return { ...e, [fieldOrUpdates]: value };
+        }
+        return { ...e, ...fieldOrUpdates };
+      })
     );
   };
 
@@ -471,12 +477,18 @@ export function DailyReportForm({
                     onChange={(e) => {
                       const val = e.target.value;
                       const platform = (platformForApp[val] ?? "shopify") as TestingPlatform;
-                      updateTestingEntry(entry.id, "application_name", val);
-                      updateTestingEntry(entry.id, "platform", platform);
+                      updateTestingEntry(entry.id, {
+                        application_name: val,
+                        platform: platform,
+                      });
                     }}
                     className="mt-1 rounded-xl text-xs font-semibold h-10 border-border bg-background text-foreground shadow-sm"
                   >
                     <option value="">Select Testing App...</option>
+                    {entry.application_name &&
+                      !appSelectGroups.some((g) => g.options.some((o) => o.value === entry.application_name)) && (
+                        <option value={entry.application_name}>{entry.application_name}</option>
+                      )}
                     {appSelectGroups.map((group) => (
                       <optgroup key={group.label} label={group.label}>
                         {group.options.map((opt) => (
